@@ -1,0 +1,1143 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Terintegrasi - Gudang & Honda KIMA</title>
+    
+    <!-- Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Plugin ChartDataLabels untuk memunculkan angka kecil di dalam/atas chart -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+
+    <!-- Master Navigasi Tab -->
+    <style>
+        .master-nav {
+            background: #1e293b;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            position: sticky;
+            top: 0;
+            z-index: 9999;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        .nav-tab {
+            background: #334155;
+            color: #ffffff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .nav-tab:hover { background: #475569; }
+        .nav-tab.active { background: #2563eb; box-shadow: 0 0 10px rgba(37,99,235,0.5); }
+        .app-section { display: none; }
+        .app-section.active-app { display: block; }
+    </style>
+
+    <!-- CSS Asli Web 2 (Honda Theme) -->
+    <style>
+        #app-honda-wrapper { background-color: #f0f2f5; color: #111; padding: 10px 0; }
+        #app-honda-wrapper * { box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        #app-honda-wrapper .container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+        #app-honda-wrapper .form-section {
+            background: #ffffff; color: #1e293b; padding: 22px; border-radius: 12px;
+            width: 390px; max-height: 92vh; overflow-y: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-top: 5px solid #cc0000;
+        }
+        #app-honda-wrapper .form-section h2 { margin-top: 0; color: #cc0000; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; font-size: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+        #app-honda-wrapper .form-group { margin-bottom: 12px; }
+        #app-honda-wrapper .form-group label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: #334155; }
+        #app-honda-wrapper .form-group input { width: 100%; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+        #app-honda-wrapper .form-group input:focus { border-color: #003399; outline: none; }
+        #app-honda-wrapper .btn-action { width: 100%; padding: 12px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; font-size: 15px; text-transform: uppercase; }
+        #app-honda-wrapper .btn-save { background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; }
+        #app-honda-wrapper .btn-history { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; }
+        #app-honda-wrapper .btn-download { width: 100%; padding: 14px; background: linear-gradient(135deg, #cc0000 0%, #990000 100%); color: white; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; font-size: 16px; text-transform: uppercase; }
+
+        #app-honda-wrapper .poster {
+            width: 440px; background: #ffffff; border: 2px solid #cbd5e1; padding: 18px; color: #1e293b; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); border-radius: 12px; position: relative; overflow: hidden;
+        }
+        #app-honda-wrapper .motor-parts-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; z-index: 0;
+        }
+        #app-honda-wrapper .bg-icon { position: absolute; font-size: 55px; opacity: 0.05; }
+        #app-honda-wrapper .icon-1 { top: 15%; left: 8%; transform: rotate(-15deg); }
+        #app-honda-wrapper .icon-2 { top: 40%; right: 5%; transform: rotate(20deg); }
+        #app-honda-wrapper .icon-3 { bottom: 20%; left: 10%; transform: rotate(45deg); }
+        #app-honda-wrapper .icon-4 { bottom: 35%; right: 12%; transform: rotate(-25deg); }
+
+        #app-honda-wrapper .poster-header, #app-honda-wrapper .grid-2, #app-honda-wrapper .tangguh-badge, #app-honda-wrapper .manpower-section {
+            position: relative; z-index: 1;
+        }
+        #app-honda-wrapper .poster::before { 
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 6px; 
+            background: linear-gradient(90deg, #cc0000 0%, #cc0000 50%, #003399 50%, #003399 100%); z-index: 2;
+        }
+        #app-honda-wrapper .poster-header { 
+            text-align: center; background: #111827; margin: -18px -18px 15px -18px; padding: 16px 15px; border-bottom: 3px solid #cc0000; 
+        }
+        #app-honda-wrapper .poster-header h1 { margin: 0; font-size: 22px; text-transform: uppercase; font-weight: 900; color: #ffffff; letter-spacing: 1px; }
+        #app-honda-wrapper .poster-header h2 { margin: 4px 0 0 0; font-size: 18px; font-weight: 700; color: #ff6b6b; }
+        #app-honda-wrapper .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        #app-honda-wrapper .panel-out { background: rgba(248, 250, 252, 0.95); border: 2px solid #93c5fd; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+        #app-honda-wrapper .panel-in { background: rgba(248, 250, 252, 0.95); border: 2px solid #e2e8f0; border-left: 5px solid #cc0000; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+        #app-honda-wrapper .panel-title { font-weight: 800; font-size: 13px; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        #app-honda-wrapper .big-number { font-size: 32px; font-weight: 900; line-height: 1; color: #0f172a; }
+        #app-honda-wrapper .stat-box { margin-bottom: 10px; }
+        #app-honda-wrapper .stat-label { font-size: 11px; text-transform: uppercase; font-weight: 800; color: #475569; }
+        #app-honda-wrapper .stat-desc { font-size: 10.5px; color: #334155; margin-top: 3px; font-weight: 600; }
+        #app-honda-wrapper .outstanding-list { font-size: 11px; color: #334155; }
+        #app-honda-wrapper .out-item { margin-bottom: 8px; display: flex; justify-content: space-between; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px; }
+        #app-honda-wrapper .out-item b { color: #0f172a; font-weight: 800; }
+        #app-honda-wrapper .tangguh-badge { 
+            background: linear-gradient(135deg, #cc0000 0%, #990000 100%); color: #ffffff; padding: 14px; text-align: center; border-radius: 8px; font-weight: 900; font-size: 16px; letter-spacing: 2px; box-shadow: 0 4px 12px rgba(204,0,0,0.3); border: 1.5px solid #ff4d4d; text-transform: uppercase; margin-top: 32px; 
+        }
+        #app-honda-wrapper .manpower-section { 
+            background: #1e293b; border: 2px solid #003399; padding: 14px 16px; border-radius: 8px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center; color: #ffffff;
+        }
+        #app-honda-wrapper .manpower-title { font-weight: 900; font-size: 15px; color: #60a5fa; margin-bottom: 6px; letter-spacing: 0.5px; }
+        #app-honda-wrapper .manpower-list { font-size: 11px; color: #e2e8f0; line-height: 1.5; font-weight: 500; }
+        #app-honda-wrapper .manpower-total { font-size: 52px; font-weight: 900; color: #ffffff; line-height: 1; text-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans m-0 p-0">
+
+    <!-- MENU UTAMA / SWITCHER -->
+    <div class="master-nav">
+        <button class="nav-tab active" onclick="switchTab('gudang')">📦 1. Monitoring Produktivitas Gudang</button>
+        <button class="nav-tab" onclick="switchTab('honda')">📊 2. Generator Laporan (Honda)</button>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- APLIKASI 1: MONITORING PRODUKTIVITAS GUDANG -->
+    <!-- ========================================== -->
+    <div id="section-gudang" class="app-section active-app p-4 md:p-8">
+        <div class="max-w-6xl mx-auto">
+            <!-- KOTAK KONTROL -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm mb-6 border border-slate-200">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                    <div>
+                        <h1 class="text-2xl font-extrabold text-slate-800 mb-1">Monitoring Produktivitas Gudang</h1>
+                        <p class="text-slate-500 text-sm">Sistem Master Roster: Semua karyawan selalu tampil di divisi asalnya.</p>
+                    </div>
+                    <button onclick="clearHistory()" class="bg-red-50 text-red-600 text-xs font-bold px-3 py-2 rounded-lg border border-red-200 hover:bg-red-100 transition">
+                        🗑️ Reset History Excel
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">1. Upload File Excel Baru</label>
+                        <input type="file" id="excelFile" accept=".xlsx, .xls" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition cursor-pointer border border-slate-200 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">2. Periode Tanggal (Mulai - Akhir)</label>
+                        <div class="flex gap-2">
+                            <input type="date" id="startDate" class="w-full border-slate-200 rounded-lg border p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-sm cursor-pointer">
+                            <input type="date" id="endDate" class="w-full border-slate-200 rounded-lg border p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-sm cursor-pointer">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">3. Cari Nama User (Opsional)</label>
+                        <input type="text" id="userSearch" placeholder="Cth: PKSFAHRY..." class="w-full border-slate-200 rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 shadow-sm">
+                    </div>
+                    <div class="flex flex-col justify-end gap-2">
+                        <button onclick="processData()" class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition shadow-md active:scale-[0.98]">
+                            Tampilkan Data
+                        </button>
+                        <button onclick="deleteDataByDate()" class="w-full bg-red-600 text-white font-bold py-2 rounded-lg hover:bg-red-700 transition shadow-md active:scale-[0.98]">
+                            Hapus Tgl Terpilih
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AREA DASHBOARD -->
+            <div id="captureArea" class="bg-slate-200 p-6 md:p-8 rounded-[1.5rem] shadow-md border-4 border-slate-200 relative mb-6">
+                
+                <!-- HEADER AREA -->
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-800" id="reportTitle">Laporan Produksi</h2>
+                        <p class="text-xs font-semibold text-slate-500 mt-1" id="reportSub">Data produktivitas terintegrasi Master Roster</p>
+                    </div>
+                    <button id="downloadBtn" onclick="downloadImage()" class="bg-emerald-600 text-white text-xs px-5 py-2.5 rounded-lg hover:bg-emerald-700 transition font-bold shadow-md flex items-center gap-2 active:scale-[0.98]">
+                        <span>📸</span> Download Gambar
+                    </button>
+                </div>
+
+                <!-- CARDS -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+                    <!-- PICKER -->
+                    <div onclick="showDetail('PICKER')" class="bg-white p-3 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition duration-200 border border-slate-200">
+                        <div class="bg-blue-50 border border-blue-100 p-5 rounded-xl flex flex-col justify-center h-full">
+                            <p class="text-blue-700 text-[11px] font-black uppercase tracking-wider mb-1">Total PICKER</p>
+                            <h3 class="text-4xl font-black text-blue-900" id="totalPicker">0</h3>
+                        </div>
+                    </div>
+                    <!-- PACKER -->
+                    <div onclick="showDetail('PACKER')" class="bg-white p-3 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition duration-200 border border-slate-200">
+                        <div class="bg-purple-50 border border-purple-100 p-5 rounded-xl flex flex-col justify-center h-full">
+                            <p class="text-purple-700 text-[11px] font-black uppercase tracking-wider mb-1">Total PACKER</p>
+                            <h3 class="text-4xl font-black text-purple-900" id="totalPacker">0</h3>
+                        </div>
+                    </div>
+                    <!-- RECEIVER -->
+                    <div onclick="showDetail('RECEIVER')" class="bg-white p-3 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition duration-200 border border-slate-200">
+                        <div class="bg-orange-50 border border-orange-100 p-5 rounded-xl flex flex-col justify-center h-full">
+                            <p class="text-orange-700 text-[11px] font-black uppercase tracking-wider mb-1">Total RECEIVER</p>
+                            <h3 class="text-4xl font-black text-orange-900" id="totalReceiver">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABLE SECTION -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+                    <table class="min-w-full divide-y divide-slate-100">
+                        <thead class="bg-white">
+                            <tr>
+                                <th class="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider">Periode</th>
+                                <th class="px-6 py-4 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nama User</th>
+                                <th class="px-6 py-4 text-center text-[11px] font-bold text-slate-400 uppercase tracking-wider">Bagian</th>
+                                <th class="px-6 py-4 text-right text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Item</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+                    </table>
+                </div>
+                
+                <!-- ANALYTICS SECTION -->
+                <div id="analyticsSection" class="flex flex-col gap-6 hidden">
+                    
+                    <!-- Global Charts (Default) -->
+                    <div id="globalCharts" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                            <h3 class="text-sm font-extrabold text-slate-700 mb-4 flex items-center gap-2" id="leftChartTitle">📊 Rata-rata Harian per Divisi</h3>
+                            <div class="relative h-60"><canvas id="barChart"></canvas></div>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                            <h3 class="text-sm font-extrabold text-slate-700 mb-4 flex items-center gap-2" id="lineChartTitle">📈 Grafik Tren Harian</h3>
+                            <div class="relative h-60"><canvas id="lineChart"></canvas></div>
+                        </div>
+                    </div>
+
+                    <!-- CHART KOMPARASI PROSES PRODUKSI -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <h3 class="text-sm font-extrabold text-slate-700 mb-1 flex items-center gap-2">📊 Grafik Komparasi Proses Produksi (Leveling vs Picking & Picking vs Packing)</h3>
+                        <p class="text-xs text-slate-500 mb-4">Membandingkan total jumlah yang di-leveling dengan picking, serta picking dengan packing sesuai tanggal terpilih.</p>
+                        <div class="relative h-72"><canvas id="comparisonChart"></canvas></div>
+                    </div>
+
+                    <!-- User Specific Chart (Tampil jika 1 User Dicari) -->
+                    <div id="userChartSection" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hidden">
+                        <h3 class="text-sm font-extrabold text-slate-700 mb-4 flex items-center gap-2" id="userChartTitle">👤 Grafik Tren Produktivitas Harian</h3>
+                        <div class="relative h-60"><canvas id="userChart"></canvas></div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL GUDANG -->
+        <div id="detailModal" class="fixed inset-0 bg-slate-900 bg-opacity-60 hidden z-50 flex justify-center items-center backdrop-blur-sm transition-opacity p-4">
+            <div id="modalCard" class="bg-white rounded-2xl w-full max-w-7xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+                <div class="bg-slate-50 px-6 py-5 border-b border-slate-100 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-2xl font-extrabold text-slate-800" id="modalTitle">Detail Pencapaian</h3>
+                        <p class="text-xs text-slate-500 font-medium mt-0.5">Laporan Evaluasi Kinerja Karyawan & Aktivitas Tambahan &middot; <span id="modalPeriod" class="font-bold text-slate-700"></span></p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button id="modalDownloadBtn" onclick="downloadModalImage()" class="bg-emerald-500 text-white text-xs px-4 py-2.5 rounded-lg hover:bg-emerald-600 transition font-bold shadow-sm flex items-center gap-1.5 active:scale-[0.98]">
+                            <span>📸</span> Download Gambar HD
+                        </button>
+                        <button onclick="closeModal()" class="text-slate-400 hover:text-red-500 font-black text-3xl leading-none transition-colors ml-1">&times;</button>
+                    </div>
+                </div>
+                <div class="p-6 overflow-y-auto" id="modalScrollArea">
+                    <div id="modalSummaryContainer" class="mb-6"></div>
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl shadow-inner bg-white">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-100 sticky top-0">
+                                <tr>
+                                    <th class="px-5 py-4 text-left text-sm font-black text-slate-700 uppercase tracking-wider">User Wadig</th>
+                                    <th class="px-5 py-4 text-left text-sm font-black text-slate-700 uppercase tracking-wider">Nama Pengguna</th>
+                                    <th class="px-5 py-4 text-center text-sm font-black text-slate-700 uppercase tracking-wider">Total Item</th>
+                                    <th id="thPallet" class="px-5 py-4 text-center text-sm font-black text-emerald-700 uppercase tracking-wider">Total Pallet</th>
+                                    <th class="px-5 py-4 text-center text-sm font-black text-blue-700 uppercase tracking-wider">Aktivitas Lain</th>
+                                    <th class="px-5 py-4 text-center text-sm font-black text-slate-700 uppercase tracking-wider">Target</th>
+                                    <th class="px-5 py-4 text-center text-sm font-black text-slate-700 uppercase tracking-wider">Status</th>
+                                    <th class="px-5 py-4 text-center text-sm font-black text-blue-600 uppercase tracking-wider">% Capaian</th>
+                                    <th class="px-5 py-4 text-left text-sm font-black text-slate-700 uppercase tracking-wider">Keterangan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modalTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- APLIKASI 2: GENERATOR LAPORAN WAREHOUSE KIMA (HONDA THEME) -->
+    <!-- ========================================================== -->
+    <div id="section-honda" class="app-section">
+        <div id="app-honda-wrapper">
+            <div class="container">
+                <div class="form-section">
+                    <h2>Input Laporan (Honda)</h2>
+                    
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <button class="btn-action btn-save" onclick="saveHondaData()" style="margin-top:0;">💾 Save Data Hari Ini</button>
+                        <button class="btn-action btn-history" onclick="openHondaHistoryModal()" style="margin-top:0;">📂 History Tanggal</button>
+                    </div>
+
+                    <div class="form-group"><label>Tanggal Laporan:</label><input type="text" id="in_tanggal" value="06-08-2026" oninput="updateDataHonda()"></div>
+                    
+                    <h3 style="font-size:13px; margin-top:15px; color:#003399; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px;">PROSES OUT</h3>
+                    <div class="form-group"><label>Tanggal Proses Out:</label><input type="text" id="in_out_tgl" value="06-08-2026" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Leveling (Item):</label><input type="text" id="in_out_leveling" value="1350" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Penyiapan (Item):</label><input type="text" id="in_out_penyiapan" value="1473" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Keterangan Penyiapan:</label><input type="text" id="in_out_penyiapan_ket" value="ITEM / 4 MAN POWER + 1 SWEEPER" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Packing (Item):</label><input type="text" id="in_out_packaging" value="1658" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Keterangan Packing:</label><input type="text" id="in_out_packaging_ket" value="ITEM (4 MAN POWER)" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Pengiriman (Race):</label><input type="text" id="in_out_pengiriman" value="7" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Detail Pengiriman:</label><input type="text" id="in_out_pengiriman_detail" value="6 RACE LJR + 1 RACE CREW PART (LJR)" oninput="updateDataHonda()"></div>
+                    
+                    <h3 style="font-size:13px; margin-top:15px; color:#cc0000; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px;">PROSES IN</h3>
+                    <div class="form-group"><label>Tanggal Proses In:</label><input type="text" id="in_in_tgl" value="06-08-2026" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Container Masuk:</label><input type="text" id="in_in_container" value="3" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Detail Container:</label><input type="text" id="in_in_container_detail" value="3 CONT (27 PALLET + BAN LUAR)" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Receiver Count:</label><input type="text" id="in_in_receiver" value="8" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Keterangan Receiver:</label><input type="text" id="in_in_receiver_ket" value="PALLET PATEN + MIX" oninput="updateDataHonda()"></div>
+                    
+                    <h3 style="font-size:13px; margin-top:15px; color:#334155; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px;">OUTSTANDING & PLAN</h3>
+                    <div class="form-group"><label>Tanggal Outstanding:</label><input type="text" id="in_outstand_tgl" value="06-08-2026" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Pengiriman:</label><input type="text" id="in_outstand_pengiriman" value="11 RACE" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Penyiapan:</label><input type="text" id="in_outstand_penyiapan" value="3279 ITEM" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Packing:</label><input type="text" id="in_outstand_packing" value="4028 ITEM" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Receiver:</label><input type="text" id="in_outstand_receiver" value="27 P" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Container Pelabuhan:</label><input type="text" id="in_outstand_container" value="2 CONT ( 1 PART,1 RANGKA)" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Tanggal Plan:</label><input type="text" id="in_plan_tgl" value="07.08.26" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Plan Count:</label><input type="text" id="in_plan_count" value="2" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Detail Plan:</label><input type="text" id="in_plan_detail" value="1 CONT PART + 1 CONT RANGKA" oninput="updateDataHonda()"></div>
+                    
+                    <h3 style="font-size:13px; margin-top:15px; color:#003399; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px;">MAN POWER</h3>
+                    <div class="form-group"><label>Crew Depo Detail:</label><input type="text" id="in_mp_crew_depo" value="2 (AMBON & BAU-BAU)" oninput="updateDataHonda()"></div>
+                    <div class="form-group"><label>Total Man Power:</label><input type="text" id="in_mp_total" value="29" oninput="updateDataHonda()"></div>
+                    <button class="btn-download" onclick="downloadImageHonda()">Download Gambar PNG</button>
+                </div>
+
+                <div class="poster" id="posterAreaHonda">
+                    <div class="motor-parts-bg">
+                        <div class="bg-icon icon-1">⚙️</div>
+                        <div class="bg-icon icon-2">🏍️</div>
+                        <div class="bg-icon icon-3">🔩</div>
+                        <div class="bg-icon icon-4">📦</div>
+                    </div>
+
+                    <div class="poster-header">
+                        <h1>AKTIVITAS WAREHOUSE KIMA</h1>
+                        <h2 id="out_tanggal">06-08-2026</h2>
+                    </div>
+                    <div class="grid-2">
+                        <div>
+                            <div class="panel-out">
+                                <div class="panel-title" style="color:#003399;">
+                                    <span>🚚 PROSES OUT</span>
+                                    <span id="out_out_tgl" style="color:#0f172a; font-size: 10.5px; font-weight: 700;">06-08-2026</span>
+                                </div>
+                                <div class="stat-box"><div class="stat-label">Proses Leveling:</div><div><span class="big-number" id="out_leveling">1350</span><span class="stat-desc">ITEM</span></div></div>
+                                <div class="stat-box"><div class="stat-label">Penyiapan:</div><div><span class="big-number" id="out_penyiapan">1473</span></div><div class="stat-desc" id="out_penyiapan_ket">ITEM / 4 MAN POWER + 1 SWEEPER</div></div>
+                                <div class="stat-box"><div class="stat-label">Packing:</div><div><span class="big-number" id="out_packaging">1658</span></div><div class="stat-desc" id="out_packaging_ket">ITEM (4 MAN POWER)</div></div>
+                                <div class="stat-box" style="margin-bottom:0;"><div class="stat-label">Pengiriman:</div><div><span class="big-number" style="color:#2563eb;" id="out_pengiriman">7</span></div><div class="stat-desc" id="out_pengiriman_detail" style="color:#1d4ed8;">6 RACE LJR + 1 RACE CREW PART (LJR)</div></div>
+                            </div>
+
+                            <div class="tangguh-badge">TANGGUH 🔥</div>
+                        </div>
+                        <div>
+                            <div class="panel-in">
+                                <div class="panel-title" style="color:#cc0000;">
+                                    <span>📦 PROSES IN</span>
+                                    <span id="out_in_tgl" style="color:#0f172a; font-size: 10.5px; font-weight: 700;">06-08-2026</span>
+                                </div>
+                                <div class="stat-box"><div class="stat-label">Container Masuk:</div><div><span class="big-number" id="out_in_container">3</span></div><div class="stat-desc" id="out_in_container_detail">3 CONT (27 PALLET + BAN LUAR)</div></div>
+                                <div class="stat-box" style="margin-bottom:0;"><div class="stat-label">Receiver:</div><div><span class="big-number" id="out_in_receiver">8</span></div><div class="stat-desc" id="out_in_receiver_ket">PALLET PATEN + MIX</div></div>
+                            </div>
+                            <div class="panel-in">
+                                <div class="panel-title" style="color:#b45309;">
+                                    <span>⏳ OUTSTANDING</span>
+                                    <span id="out_outstand_tgl" style="color:#0f172a; font-size: 10.5px; font-weight: 700;">06-08-2026</span>
+                                </div>
+                                <div class="outstanding-list">
+                                    <div class="out-item"><span>🚚 PENGIRIMAN</span><b id="out_outstand_pengiriman">11 RACE</b></div>
+                                    <div class="out-item"><span>🛒 PENYIAPAN</span><b id="out_outstand_penyiapan">3279 ITEM</b></div>
+                                    <div class="out-item"><span>📦 PACKING</span><b id="out_outstand_packing">4028 ITEM</b></div>
+                                    <div class="out-item"><span>🧤 RECEIVER</span><b id="out_outstand_receiver">27 P</b></div>
+                                    <div class="out-item"><span>🚢 CONT PELABUHAN</span><b id="out_outstand_container">2 CONT ( 1 PART,1 RANGKA)</b></div>
+                                </div>
+                            </div>
+                            <div class="panel-in" style="margin-bottom:0;">
+                                <div class="panel-title" style="color:#003399;">
+                                    <span>📋 PLAN</span>
+                                    <span id="out_plan_tgl" style="color:#0f172a; font-size: 10.5px; font-weight: 700;">07.08.26</span>
+                                </div>
+                                <div><span class="big-number" id="out_plan_count" style="color:#b45309;">2</span></div>
+                                <div class="stat-desc" id="out_plan_detail">1 CONT PART + 1 CONT RANGKA</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CHART GRAFIK KOMPARASI DI ATAS MAN POWER (DENGAN WARNA BERBEDA & ANGKA KECIL) -->
+                    <div style="margin-top: 12px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                        <h3 style="font-size: 11px; font-weight: 800; color: #1e293b; margin-bottom: 6px; text-transform: uppercase;">📊 GRAFIK KOMPARASI</h3>
+                        <div style="position: relative; height: 130px;"><canvas id="hondaIntegratedChart"></canvas></div>
+                    </div>
+
+                    <div class="manpower-section">
+                        <div>
+                            <div class="manpower-title">MAN POWER</div>
+                            <div class="manpower-list">
+                                CONTROLER : 1<br>ADMIN : 2<br>PIC INI/OUT : 1<br>CREW : 15<br>
+                                CREW DEPO : <span id="out_mp_crew_depo">2 (AMBON & BAU-BAU)</span><br>
+                                DRIVER/ASS DRIVER : 8
+                            </div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 9px; font-weight: 800; color: #94a3b8; letter-spacing: 1px; text-transform: uppercase;">TOTAL</div>
+                            <div class="manpower-total" id="out_mp_total">29</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL HISTORY HONDA -->
+    <div id="hondaHistoryModal" class="fixed inset-0 bg-slate-900 bg-opacity-60 hidden z-50 flex justify-center items-center backdrop-blur-sm p-4">
+        <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden flex flex-col p-6">
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 class="text-xl font-extrabold text-slate-800">📂 History Tanggal Laporan Honda</h3>
+                <button onclick="closeHondaHistoryModal()" class="text-slate-400 hover:text-red-500 font-black text-3xl leading-none">&times;</button>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">Pilih tanggal laporan sebelumnya yang ingin dimuat kembali ke form:</p>
+            <div id="hondaHistoryList" class="flex flex-col gap-2 max-h-60 overflow-y-auto mb-4"></div>
+            <button onclick="closeHondaHistoryModal()" class="bg-slate-200 text-slate-700 py-2 rounded-lg font-bold text-sm hover:bg-slate-300 transition">Tutup</button>
+        </div>
+    </div>
+
+    <!-- SCRIPTS GABUNGAN -->
+    <script>
+        // Daftarkan plugin datalabels secara global
+        Chart.register(ChartDataLabels);
+
+        function switchTab(target) {
+            document.querySelectorAll('.app-section').forEach(el => el.classList.remove('active-app'));
+            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+            
+            if(target === 'gudang') {
+                document.getElementById('section-gudang').classList.add('active-app');
+                document.querySelectorAll('.nav-tab')[0].classList.add('active');
+            } else {
+                document.getElementById('section-honda').classList.add('active-app');
+                document.querySelectorAll('.nav-tab')[1].classList.add('active');
+                updateHondaIntegratedChart(); 
+            }
+        }
+
+        let excelData = [];
+        let currentFilteredData = [];
+        let globalSummaryData = {};
+        
+        let barChartInstance = null;
+        let lineChartInstance = null;
+        let comparisonChartInstance = null; 
+        let hondaChartInstance = null; 
+        let userChartInstance = null; 
+        let currentDetailDep = ''; 
+        
+        const MINIMAL = {
+            'PICKER': { item: 200, pallet: 0 }, 
+            'PACKER': { item: 250, pallet: 0 }, 
+            'RECEIVER': { item: 130, pallet: 4 }
+        };
+        const SORT_ORDER = { 'PICKER': 1, 'PACKER': 2, 'RECEIVER': 3 };
+        
+        const MASTER_USERS = [
+            { nama: "PKSFAHRY0806", bagian: "PICKER" }, { nama: "HASANU013827", bagian: "PICKER" },
+            { nama: "ASTMUHZU0204", bagian: "PICKER" }, { nama: "AWALAW080474", bagian: "PICKER" },
+            { nama: "BRATAS012368", bagian: "PICKER" }, { nama: "PKSALIP66374", bagian: "PACKER" },
+            { nama: "ABDURR076790", bagian: "PACKER" }, { nama: "ASTMUHFA0114", bagian: "PACKER" },
+            { nama: "ASTNURSA0208", bagian: "PACKER" }, { nama: "ABDHAR034256", bagian: "RECEIVER" },
+            { nama: "ASTCITRA4298", bagian: "RECEIVER" }, { nama: "PKSSYAHR0199", bagian: "RECEIVER" },
+            { nama: "ASTTAKDI0771", bagian: "RECEIVER" }
+        ];
+
+        const USER_NAME_MAP = {
+            "ASTBARMA0113": "BANTUAN", "ASTCITRA4298": "YUDA", "ASTMUHFA0114": "ADI WIJAYA",
+            "ASTMUHZU0204": "ZULFIKAR", "AWALAW080474": "ALIP 2", "BRATAS012368": "HADI",
+            "HASANU013827": "ADIT", "PKSFAHRY0806": "AHMAD", "PKSSYAHR0199": "ALUL",
+            "ABDURR076790": "SATYA", "ASTNURSA0208": "SALAM", "ASTTAKDI0771": "TAKDIR",
+            "PKSALIP66374": "ALIP 1", "ABDHAR034256": "DANDI" 
+        };
+
+        function getBagianExcel(rawBagian) {
+            let b = String(rawBagian || '').toUpperCase().trim();
+            if (b.includes('PICK') || b.includes('CEK')) return 'PICKER';
+            if (b.includes('PACK') || b.includes('SIAP')) return 'PACKER';
+            if (b.includes('RECEIV')) return 'RECEIVER';
+            return 'LAINNYA';
+        }
+
+        function normalizeDate(raw) {
+            if (!raw) return "";
+            let num = Number(raw);
+            if (!isNaN(num) && num > 10000 && num < 99999) {
+                const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+                return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+            }
+            if (raw instanceof Date) return `${raw.getFullYear()}-${String(raw.getMonth()+1).padStart(2,'0')}-${String(raw.getDate()).padStart(2,'0')}`;
+            return String(raw).trim();
+        }
+
+        function getColumnKey(row, keys) {
+            return Object.keys(row).find(x => keys.some(k => x.toLowerCase().includes(k))) || null;
+        }
+
+        window.onload = () => {
+            let saved = localStorage.getItem('gudang_accumulated_data');
+            if (saved) {
+                excelData = JSON.parse(saved);
+                generateGlobalSummary();
+                processData();
+            }
+            loadLatestHondaData();
+            updateHondaIntegratedChart();
+        };
+
+        function generateGlobalSummary() {
+            globalSummaryData = {};
+            excelData.forEach(row => {
+                let tgl = normalizeDate(row[getColumnKey(row, ['tanggal','tgl','date'])]);
+                if (!tgl) return;
+                if (!globalSummaryData[tgl]) globalSummaryData[tgl] = { PICKER: 0, PACKER: 0, RECEIVER: 0, LEVELING: 0 };
+                let b = getBagianExcel(row[getColumnKey(row, ['bagian','divisi','dept'])]);
+                let qty = parseInt(row[getColumnKey(row, ['jumlah','qty','item'])] || 0) || 0;
+                
+                let rawB = String(row[getColumnKey(row, ['bagian','divisi','dept'])] || '').toUpperCase();
+                if (rawB.includes('LEVEL')) {
+                    globalSummaryData[tgl].LEVELING += qty;
+                }
+
+                if (globalSummaryData[tgl].hasOwnProperty(b)) globalSummaryData[tgl][b] += qty;
+            });
+        }
+
+        function processData() {
+            const sDate = document.getElementById('startDate').value;
+            const eDate = document.getElementById('endDate').value;
+            const search = document.getElementById('userSearch').value.toLowerCase().trim();
+            let totals = { 'PICKER': 0, 'PACKER': 0, 'RECEIVER': 0 };
+            
+            let userRosterMap = {};
+            MASTER_USERS.forEach(u => { userRosterMap[u.nama] = u.bagian; });
+
+            let aggregatedUsers = {};
+            MASTER_USERS.forEach(u => {
+                aggregatedUsers[u.nama] = {
+                    nama: u.nama,
+                    bagian: u.bagian,
+                    divQty: { PICKER: 0, PACKER: 0, RECEIVER: 0 },
+                    divPallet: { PICKER: 0, PACKER: 0, RECEIVER: 0 },
+                    ketSet: new Set()
+                };
+            });
+            
+            let userDailyData = {}; 
+
+            excelData.forEach(row => {
+                let tgl = normalizeDate(row[getColumnKey(row, ['tanggal','tgl','date'])]);
+                let nama = String(row[getColumnKey(row, ['nama','user'])] || '').trim().toUpperCase();
+                let b = getBagianExcel(row[getColumnKey(row, ['bagian','divisi','dept'])]);
+                let qty = parseInt(row[getColumnKey(row, ['jumlah','qty','item'])] || 0) || 0;
+                let pallet = parseInt(row[getColumnKey(row, ['pallet','plt'])] || 0) || 0;
+                let ket = String(row[getColumnKey(row, ['keterangan','ket','note'])] || "").trim();
+
+                let inRange = true;
+                if (!tgl) inRange = false;
+                if (sDate && tgl < sDate) inRange = false;
+                if (eDate && tgl > eDate) inRange = false;
+
+                if (inRange && nama && b !== 'LAINNYA') {
+                    if (!aggregatedUsers[nama]) {
+                        aggregatedUsers[nama] = {
+                            nama: nama,
+                            bagian: userRosterMap[nama] || b,
+                            divQty: { PICKER: 0, PACKER: 0, RECEIVER: 0 },
+                            divPallet: { PICKER: 0, PACKER: 0, RECEIVER: 0 },
+                            ketSet: new Set()
+                        };
+                    }
+                    aggregatedUsers[nama].divQty[b] = (aggregatedUsers[nama].divQty[b] || 0) + qty;
+                    aggregatedUsers[nama].divPallet[b] = (aggregatedUsers[nama].divPallet[b] || 0) + pallet;
+                    if(ket) aggregatedUsers[nama].ketSet.add(ket);
+
+                    if (!userDailyData[nama]) userDailyData[nama] = {};
+                    userDailyData[nama][tgl] = (userDailyData[nama][tgl] || 0) + qty;
+                }
+            });
+
+            currentFilteredData = Object.values(aggregatedUsers).filter(i => {
+                let hasData = (i.divQty.PICKER > 0 || i.divQty.PACKER > 0 || i.divQty.RECEIVER > 0);
+                let matchSearch = !search || i.nama.toLowerCase().includes(search);
+                return hasData && matchSearch;
+            });
+            
+            currentFilteredData.sort((a,b) => (SORT_ORDER[a.bagian] || 99) - (SORT_ORDER[b.bagian] || 99) || a.nama.localeCompare(b.nama));
+            
+            currentFilteredData.forEach(u => {
+                totals.PICKER += u.divQty.PICKER;
+                totals.PACKER += u.divQty.PACKER;
+                totals.RECEIVER += u.divQty.RECEIVER;
+            });
+
+            let tbody = document.getElementById('tableBody'); tbody.innerHTML = '';
+            
+            let periodText = 'Akumulasi';
+            if (sDate && eDate) periodText = `${sDate} s/d ${eDate}`;
+            else if (sDate) periodText = `Mulai ${sDate}`;
+            else if (eDate) periodText = `Hingga ${eDate}`;
+
+            currentFilteredData.forEach(i => {
+                let mainQty = i.divQty[i.bagian] || 0;
+                let badge = '';
+
+                if (i.bagian === 'PICKER') badge = 'bg-blue-50 text-blue-600 border border-blue-200';
+                else if (i.bagian === 'PACKER') badge = 'bg-purple-50 text-purple-600 border border-purple-200';
+                else badge = 'bg-orange-50 text-orange-600 border border-orange-200';
+                
+                tbody.innerHTML += `
+                <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+                    <td class="px-6 py-4 text-sm font-semibold text-slate-500">${periodText}</td>
+                    <td class="px-6 py-4 text-sm font-black text-slate-800">${i.nama}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="px-3 py-1 rounded-full text-[10px] font-bold ${badge}">${i.bagian}</span>
+                    </td>
+                    <td class="px-6 py-4 text-right text-sm font-black text-slate-800">${mainQty.toLocaleString()}</td>
+                </tr>`;
+            });
+
+            document.getElementById('totalPicker').innerText = totals.PICKER.toLocaleString();
+            document.getElementById('totalPacker').innerText = totals.PACKER.toLocaleString();
+            document.getElementById('totalReceiver').innerText = totals.RECEIVER.toLocaleString();
+            
+            if (excelData.length > 0) {
+                document.getElementById('analyticsSection').classList.remove('hidden');
+                
+                if (currentFilteredData.length === 1 && search !== '') {
+                    let theUser = currentFilteredData[0].nama;
+                    document.getElementById('globalCharts').classList.add('hidden');
+                    document.getElementById('userChartSection').classList.remove('hidden');
+                    renderUserChart(theUser, userDailyData[theUser] || {});
+                } else {
+                    document.getElementById('globalCharts').classList.remove('hidden');
+                    document.getElementById('userChartSection').classList.add('hidden');
+                    renderCharts(totals);
+                }
+            }
+        }
+
+        function renderCharts(totals) {
+            const sDate = document.getElementById('startDate').value;
+            const eDate = document.getElementById('endDate').value;
+            
+            let dates = Object.keys(globalSummaryData).sort();
+            dates = dates.filter(d => {
+                if (sDate && d < sDate) return false;
+                if (eDate && d > eDate) return false;
+                return true;
+            });
+
+            const dateCount = Math.max(1, dates.length);
+            const barCtx = document.getElementById('barChart').getContext('2d');
+            if (barChartInstance) barChartInstance.destroy();
+
+            let avgPicker = (totals.PICKER / dateCount).toFixed(0);
+            let avgPacker = (totals.PACKER / dateCount).toFixed(0);
+            let avgReceiver = (totals.RECEIVER / dateCount).toFixed(0);
+
+            barChartInstance = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Picker', 'Packer', 'Receiver'],
+                    datasets: [{ label: 'Rata-rata Item/Hari', data: [avgPicker, avgPacker, avgReceiver], backgroundColor: ['#3b82f6', '#a855f7', '#f97316'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const lineCtx = document.getElementById('lineChart').getContext('2d');
+            if (lineChartInstance) lineChartInstance.destroy();
+            
+            lineChartInstance = new Chart(lineCtx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        { label: 'Picker', data: dates.map(d => globalSummaryData[d].PICKER), borderColor: '#3b82f6' },
+                        { label: 'Packer', data: dates.map(d => globalSummaryData[d].PACKER), borderColor: '#a855f7' },
+                        { label: 'Receiver', data: dates.map(d => globalSummaryData[d].RECEIVER), borderColor: '#f97316' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const compCtx = document.getElementById('comparisonChart').getContext('2d');
+            if (comparisonChartInstance) comparisonChartInstance.destroy();
+
+            let totalLevelingFromHonda = parseInt(document.getElementById('in_out_leveling').value) || 0;
+            let totalPicking = totals.PICKER;
+            let totalPacking = totals.PACKER;
+
+            comparisonChartInstance = new Chart(compCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Leveling vs Picking', 'Picking vs Packing'],
+                    datasets: [
+                        {
+                            label: 'Leveling / Picking (1)',
+                            data: [totalLevelingFromHonda, totalPicking],
+                            backgroundColor: ['#ef4444', '#f59e0b'], // Warna dibedakan khusus
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Picking / Packing (2)',
+                            data: [totalPicking, totalPacking],
+                            backgroundColor: ['#3b82f6', '#8b5cf6'], // Warna dibedakan khusus
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'top',
+                            font: { size: 10, weight: 'bold' },
+                            color: '#334155'
+                        }
+                    },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+        
+        function renderUserChart(username, dataObj) {
+            const ctx = document.getElementById('userChart').getContext('2d');
+            if (userChartInstance) userChartInstance.destroy();
+            
+            document.getElementById('userChartTitle').innerHTML = `👤 Grafik Tren Harian: <span class="text-blue-600">${username}</span>`;
+            
+            const dates = Object.keys(dataObj).sort();
+            const dataPts = dates.map(d => dataObj[d]);
+
+            userChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: `Tren Garis (Perbandingan)`,
+                            data: dataPts,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            type: 'line',
+                            fill: true,
+                            order: 1
+                        },
+                        {
+                            label: `Total Item per Hari`,
+                            data: dataPts,
+                            backgroundColor: '#3b82f6',
+                            borderRadius: 4,
+                            order: 2
+                        }
+                    ]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        function showDetail(dep) {
+            const sDate = document.getElementById('startDate').value;
+            const eDate = document.getElementById('endDate').value;
+            if (!sDate && !eDate) { alert("⚠️ Pilih periode tanggal dulu untuk melihat detail pencapaian!"); return; }
+            currentDetailDep = dep; 
+            
+            document.getElementById('modalTitle').innerText = `Detail Pencapaian - ${dep}`;
+            let periodTextModal = 'Akumulasi';
+            if (sDate && eDate) periodTextModal = (sDate === eDate) ? `Tanggal ${sDate}` : `${sDate} s/d ${eDate}`;
+            else if (sDate) periodTextModal = `Mulai ${sDate}`;
+            else if (eDate) periodTextModal = `Hingga ${eDate}`;
+            document.getElementById('modalPeriod').innerText = periodTextModal;
+            const showPallet = (dep === 'RECEIVER');
+            const thPallet = document.getElementById('thPallet');
+            if (thPallet) thPallet.style.display = showPallet ? 'table-cell' : 'none';
+
+            let filteredUsers = currentFilteredData.filter(i => i.bagian === dep);
+            let totalPersonnel = filteredUsers.length;
+            let gacorCount = 0;
+            let needGaspolCount = 0;
+
+            let html = '';
+            filteredUsers.forEach(user => {
+                let targetObj = MINIMAL[dep];
+                let targetItem = targetObj.item;
+                let targetPallet = targetObj.pallet;
+                let myQty = user.divQty[dep] || 0;
+                let myPallet = user.divPallet[dep] || 0;
+                
+                let itemPercent = (myQty / targetItem) * 100;
+                let palletPercent = targetPallet > 0 ? (myPallet / targetPallet) * 100 : 0;
+                let totalPercent = 0;
+                let isFailed = false;
+
+                if (dep === 'RECEIVER') {
+                    totalPercent = (itemPercent + palletPercent) / 2;
+                    isFailed = totalPercent < 90;
+                } else {
+                    totalPercent = itemPercent;
+                    isFailed = totalPercent < 100;
+                }
+
+                let capaianText = totalPercent.toFixed(1) + '%';
+                let capaianClass = isFailed ? 'text-red-600' : 'text-emerald-600';
+                if (!isFailed) gacorCount++; else needGaspolCount++;
+
+                let status = !isFailed ? '🚀 GACOR! 🔥' : '🐢 PERLU GASPOL ⚠️';
+                let ket = (isFailed && user.ketSet.size > 0) ? [...user.ketSet].join(', ') : '-';
+
+                let targetText = targetPallet > 0 
+                    ? `<span class="whitespace-nowrap text-blue-700">${targetItem} Itm = 50%</span> <br> <span class="text-xs text-emerald-700 whitespace-nowrap">${targetPallet} Plt = 50%</span><br><span class="text-xs text-red-500 font-bold whitespace-nowrap">Min Lulus: 90%</span>` 
+                    : `${targetItem} Item`;
+
+                let otherDivs = ['PICKER', 'PACKER', 'RECEIVER'].filter(d => d !== dep);
+                let otherActs = [];
+                otherDivs.forEach(d => {
+                    let acts = [];
+                    if (user.divQty[d] > 0) acts.push(`${user.divQty[d].toLocaleString()} Itm`);
+                    if (user.divPallet[d] > 0) acts.push(`${user.divPallet[d]} Plt`);
+                    if (acts.length > 0) otherActs.push(`<b>${d}:</b> ${acts.join(' & ')}`);
+                });
+                let extraColText = otherActs.length > 0 ? otherActs.join('<br>') : '-';
+                let namaPengguna = USER_NAME_MAP[user.nama] || "-";
+                let tdPalletHTML = showPallet ? `<td class="px-5 py-4 text-center font-black text-emerald-600 text-xl">${myPallet > 0 ? myPallet : '-'}</td>` : '';
+
+                html += `<tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-5 py-4 font-extrabold text-slate-800 text-base">${user.nama}</td>
+                    <td class="px-5 py-4 font-bold text-slate-700 text-base">${namaPengguna}</td>
+                    <td class="px-5 py-4 text-center font-black text-blue-700 text-xl">${myQty.toLocaleString()}</td>
+                    ${tdPalletHTML}
+                    <td class="px-5 py-4 text-center text-sm font-bold text-indigo-700 bg-indigo-50/50">${extraColText}</td>
+                    <td class="px-5 py-4 text-center font-bold text-slate-700 text-sm leading-tight">${targetText}</td>
+                    <td class="px-5 py-4 text-center font-black text-sm tracking-wide">${status}</td>
+                    <td class="px-5 py-4 text-center font-extrabold text-base ${capaianClass}">${capaianText}</td>
+                    <td class="px-5 py-4 text-sm text-slate-700 font-medium">${ket}</td>
+                </tr>`;
+            });
+
+            let summaryHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div><p class="text-xs font-bold text-slate-500 uppercase">Total Personil</p><h4 class="text-3xl font-black text-slate-800 mt-1">${totalPersonnel}</h4></div><span class="text-3xl">👥</span>
+                    </div>
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200 shadow-sm flex items-center justify-between">
+                        <div><p class="text-xs font-bold text-emerald-700 uppercase">Target Tercapai (Gacor)</p><h4 class="text-3xl font-black text-emerald-800 mt-1">${gacorCount}</h4></div><span class="text-3xl">🚀</span>
+                    </div>
+                    <div class="bg-amber-50 p-4 rounded-xl border border-amber-200 shadow-sm flex items-center justify-between">
+                        <div><p class="text-xs font-bold text-amber-700 uppercase">Perlu Gaspol</p><h4 class="text-3xl font-black text-amber-800 mt-1">${needGaspolCount}</h4></div><span class="text-3xl">⚠️</span>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('modalSummaryContainer').innerHTML = summaryHTML;
+            document.getElementById('modalTableBody').innerHTML = html;
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('detailModal').classList.add('hidden'); }
+        
+        function downloadModalImage() {
+            const card = document.getElementById('modalCard');
+            const scrollArea = document.getElementById('modalScrollArea');
+            const downloadBtn = document.getElementById('modalDownloadBtn');
+            const origCardMaxH = card.style.maxHeight;
+            const origCardOverflow = card.style.overflow;
+            const origScrollMaxH = scrollArea.style.maxHeight;
+            const origScrollOverflow = scrollArea.style.overflow;
+
+            card.style.maxHeight = 'none'; card.style.overflow = 'visible';
+            scrollArea.style.maxHeight = 'none'; scrollArea.style.overflow = 'visible';
+            downloadBtn.style.display = 'none';
+
+            setTimeout(() => {
+                html2canvas(card, { scale: 2, useCORS: true, windowWidth: card.scrollWidth, windowHeight: card.scrollHeight }).then(c => {
+                    let a = document.createElement('a'); 
+                    const sDate = document.getElementById('startDate').value;
+                    const eDate = document.getElementById('endDate').value;
+                    const dateStr = (sDate || eDate) ? `${sDate}_SD_${eDate}` : 'Semua_Waktu';
+                    a.download = `Evaluasi_Detail_${currentDetailDep}_${dateStr}.png`; 
+                    a.href = c.toDataURL(); a.click();
+                    card.style.maxHeight = origCardMaxH; card.style.overflow = origCardOverflow;
+                    scrollArea.style.maxHeight = origScrollMaxH; scrollArea.style.overflow = origScrollOverflow;
+                    downloadBtn.style.display = 'flex';
+                });
+            }, 150);
+        }
+
+        function clearHistory() { if(confirm('Reset semua data?')) { localStorage.removeItem('gudang_accumulated_data'); location.reload(); } }
+        
+        function deleteDataByDate() {
+            const sDate = document.getElementById('startDate').value;
+            const eDate = document.getElementById('endDate').value;
+            
+            if (!sDate && !eDate) {
+                alert("⚠️ Pilih periode tanggal (Mulai / Akhir) terlebih dahulu untuk menghapus data!");
+                return;
+            }
+            
+            if(confirm(`Apakah Anda yakin ingin menghapus data dari rentang waktu ${sDate || 'Awal'} sampai ${eDate || 'Akhir'}?`)) {
+                const initialLength = excelData.length;
+                
+                excelData = excelData.filter(row => {
+                    let tgl = normalizeDate(row[getColumnKey(row, ['tanggal','tgl','date'])]);
+                    if(!tgl) return true; 
+
+                    let inRange = true;
+                    if (sDate && tgl < sDate) inRange = false;
+                    if (eDate && tgl > eDate) inRange = false;
+
+                    return !inRange;
+                });
+                
+                if (excelData.length === initialLength) {
+                    alert(`ℹ️ Tidak ada data yang ditemukan untuk dihapus pada periode tersebut.`);
+                    return;
+                }
+
+                localStorage.setItem('gudang_accumulated_data', JSON.stringify(excelData));
+                generateGlobalSummary();
+                processData();
+                alert(`✅ Data periode tersebut berhasil dihapus!`);
+            }
+        }
+
+        function downloadImage() { html2canvas(document.getElementById('captureArea')).then(c => { let a = document.createElement('a'); a.download = 'Laporan.png'; a.href = c.toDataURL(); a.click(); }); }
+        
+        document.getElementById('excelFile').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array', raw: true});
+                let newData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:""});
+                excelData = [...excelData, ...newData];
+                localStorage.setItem('gudang_accumulated_data', JSON.stringify(excelData));
+                generateGlobalSummary();
+                processData();
+                updateHondaIntegratedChart();
+                alert("✅ Data tersimpan!");
+            };
+            if(e.target.files[0]) reader.readAsArrayBuffer(e.target.files[0]);
+        });
+
+        // ==========================================
+        // FITUR LAPORAN HONDA & CHART TERINTEGRASI
+        // ==========================================
+        const hondaInputIds = [
+            'in_tanggal', 'in_out_tgl', 'in_out_leveling', 'in_out_penyiapan', 'in_out_penyiapan_ket', 'in_out_packaging', 'in_out_packaging_ket',
+            'in_out_pengiriman', 'in_out_pengiriman_detail', 'in_in_tgl', 'in_in_container',
+            'in_in_container_detail', 'in_in_receiver', 'in_in_receiver_ket', 'in_outstand_tgl', 'in_outstand_pengiriman',
+            'in_outstand_penyiapan', 'in_outstand_packing', 'in_outstand_receiver', 'in_outstand_container',
+            'in_plan_tgl', 'in_plan_count', 'in_plan_detail', 'in_mp_crew_depo', 'in_mp_total'
+        ];
+
+        function updateDataHonda() {
+            document.getElementById('out_tanggal').innerText = document.getElementById('in_tanggal').value;
+            document.getElementById('out_out_tgl').innerText = document.getElementById('in_out_tgl').value;
+            document.getElementById('out_in_tgl').innerText = document.getElementById('in_in_tgl').value;
+            document.getElementById('out_outstand_tgl').innerText = document.getElementById('in_outstand_tgl').value;
+            
+            document.getElementById('out_leveling').innerText = document.getElementById('in_out_leveling').value;
+            document.getElementById('out_penyiapan').innerText = document.getElementById('in_out_penyiapan').value;
+            document.getElementById('out_penyiapan_ket').innerText = document.getElementById('in_out_penyiapan_ket').value;
+            document.getElementById('out_packaging').innerText = document.getElementById('in_out_packaging').value;
+            document.getElementById('out_packaging_ket').innerText = document.getElementById('in_out_packaging_ket').value;
+            document.getElementById('out_pengiriman').innerText = document.getElementById('in_out_pengiriman').value;
+            document.getElementById('out_pengiriman_detail').innerText = document.getElementById('in_out_pengiriman_detail').value;
+            document.getElementById('out_in_container').innerText = document.getElementById('in_in_container').value;
+            document.getElementById('out_in_container_detail').innerText = document.getElementById('in_in_container_detail').value;
+            document.getElementById('out_in_receiver').innerText = document.getElementById('in_in_receiver').value;
+            document.getElementById('out_in_receiver_ket').innerText = document.getElementById('in_in_receiver_ket').value;
+            document.getElementById('out_outstand_pengiriman').innerText = document.getElementById('in_outstand_pengiriman').value;
+            document.getElementById('out_outstand_penyiapan').innerText = document.getElementById('in_outstand_penyiapan').value;
+            document.getElementById('out_outstand_packing').innerText = document.getElementById('in_outstand_packing').value;
+            document.getElementById('out_outstand_receiver').innerText = document.getElementById('in_outstand_receiver').value;
+            document.getElementById('out_outstand_container').innerText = document.getElementById('in_outstand_container').value;
+            document.getElementById('out_plan_tgl').innerText = document.getElementById('in_plan_tgl').value;
+            document.getElementById('out_plan_count').innerText = document.getElementById('in_plan_count').value;
+            document.getElementById('out_plan_detail').innerText = document.getElementById('in_plan_detail').value;
+            document.getElementById('out_mp_crew_depo').innerText = document.getElementById('in_mp_crew_depo').value;
+            document.getElementById('out_mp_total').innerText = document.getElementById('in_mp_total').value;
+
+            updateHondaIntegratedChart();
+        }
+
+        function updateHondaIntegratedChart() {
+            const ctx = document.getElementById('hondaIntegratedChart');
+            if (!ctx) return;
+            
+            if (hondaChartInstance) hondaChartInstance.destroy();
+
+            let lvl = parseInt(document.getElementById('in_out_leveling').value) || 0;
+            let pick = parseInt(document.getElementById('in_out_penyiapan').value) || 0;
+            let pack = parseInt(document.getElementById('in_out_packaging').value) || 0;
+
+            hondaChartInstance = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Leveling vs Picking', 'Picking vs Packing'],
+                    datasets: [
+                        {
+                            label: 'Proses Awal',
+                            data: [lvl, pick],
+                            backgroundColor: ['#ef4444', '#3b82f6'], // Warna dibedakan antara kolom Leveling dan Picking
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Proses Lanjutan',
+                            data: [pick, pack],
+                            backgroundColor: ['#f59e0b', '#8b5cf6'], // Warna dibedakan antara kolom Picking dan Packing
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'top',
+                            font: { size: 9, weight: 'bold' },
+                            color: '#1e293b'
+                        }
+                    },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        function saveHondaData() {
+            const currentDate = document.getElementById('in_tanggal').value;
+            if (!currentDate) {
+                alert("⚠️ Tanggal Laporan tidak boleh kosong!");
+                return;
+            }
+
+            let formData = {};
+            hondaInputIds.forEach(id => {
+                formData[id] = document.getElementById(id).value;
+            });
+
+            let allHistory = JSON.parse(localStorage.getItem('honda_reports_history') || '{}');
+            allHistory[currentDate] = formData;
+            localStorage.setItem('honda_reports_history', JSON.stringify(allHistory));
+            localStorage.setItem('honda_latest_date', currentDate);
+
+            alert(`✅ Data laporan tanggal ${currentDate} berhasil disimpan! Data aman untuk diinput besok.`);
+        }
+
+        function loadLatestHondaData() {
+            let latestDate = localStorage.getItem('honda_latest_date');
+            let allHistory = JSON.parse(localStorage.getItem('honda_reports_history') || '{}');
+            if (latestDate && allHistory[latestDate]) {
+                let data = allHistory[latestDate];
+                hondaInputIds.forEach(id => {
+                    if (data[id] !== undefined) {
+                        document.getElementById(id).value = data[id];
+                    }
+                });
+                updateDataHonda();
+            }
+        }
+
+        function openHondaHistoryModal() {
+            let allHistory = JSON.parse(localStorage.getItem('honda_reports_history') || '{}');
+            let dates = Object.keys(allHistory).sort().reverse();
+            let listContainer = document.getElementById('hondaHistoryList');
+            listContainer.innerHTML = '';
+
+            if (dates.length === 0) {
+                listContainer.innerHTML = `<p class="text-sm text-slate-400 text-center py-4">Belum ada history tersimpan.</p>`;
+            } else {
+                dates.forEach(date => {
+                    listContainer.innerHTML += `
+                        <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <span class="font-bold text-slate-700 text-sm">📅 ${date}</span>
+                            <button onclick="loadHondaHistoryByDate('${date}')" class="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg font-bold hover:bg-blue-700 transition">Muat Data</button>
+                        </div>
+                    `;
+                });
+            }
+            document.getElementById('hondaHistoryModal').classList.remove('hidden');
+        }
+
+        function closeHondaHistoryModal() {
+            document.getElementById('hondaHistoryModal').classList.add('hidden');
+        }
+
+        function loadHondaHistoryByDate(date) {
+            let allHistory = JSON.parse(localStorage.getItem('honda_reports_history') || '{}');
+            if (allHistory[date]) {
+                let data = allHistory[date];
+                hondaInputIds.forEach(id => {
+                    if (data[id] !== undefined) {
+                        document.getElementById(id).value = data[id];
+                    }
+                });
+                updateDataHonda();
+                localStorage.setItem('honda_latest_date', date);
+                closeHondaHistoryModal();
+                alert(`✅ Berhasil memuat laporan tanggal ${date}`);
+            }
+        }
+
+        function downloadImageHonda() {
+            const posterNode = document.getElementById('posterAreaHonda');
+            html2canvas(posterNode, { scale: 2 }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Laporan-Warehouse-Honda-${document.getElementById('in_tanggal').value}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+    </script>
+</body>
+</html>
