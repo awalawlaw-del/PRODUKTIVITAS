@@ -301,7 +301,7 @@
             <div class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
                 <div class="bg-amber-50 px-6 py-5 border-b border-amber-100 flex justify-between items-center">
                     <div>
-                        <h3 class="text-xl font-extrabold text-amber-900 flex items-center gap-2">⭐ Rekap Karyawan Terbaik AI</h3>
+                        <h3 class="text-xl font-extrabold text-amber-900 flex items-center gap-2">⭐ Rekap Karyawan Terbaik</h3>
                         <p class="text-xs text-amber-700 font-medium mt-0.5">Berdasarkan periode filter tanggal saat ini</p>
                     </div>
                     <button onclick="closeGlobalBestModal()" class="text-slate-400 hover:text-red-500 font-black text-3xl leading-none">&times;</button>
@@ -847,14 +847,12 @@
         }
 
         // ==========================================
-        // FITUR AI ANALISIS KARYAWAN TERBAIK MASING-MASING BAGIAN
+        // FITUR KARYAWAN TERBAIK (DENGAN PENJELASAN ALASAN)
         // ==========================================
         function calculateBestEmployeeAI(dep, filteredUsers) {
-            // Filter exclude user ASTBARMA0113 dari nominasi
             let eligibleUsers = filteredUsers.filter(u => u.nama !== "ASTBARMA0113");
             if (!eligibleUsers || eligibleUsers.length === 0) return null;
 
-            // Hitung jumlah hari aktif unik per user dari excelData berdasarkan rentang tanggal
             const sDate = document.getElementById('startDate').value;
             const eDate = document.getElementById('endDate').value;
             
@@ -977,7 +975,7 @@
 
                 html += `<tr class="hover:bg-slate-50 transition-colors ${rowHighlight}">
                     <td class="px-5 py-4 font-extrabold text-slate-800 text-base flex items-center gap-2">
-                        ${user.nama} ${isBest ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-black border border-amber-300">⭐ Karyawan Terbaik AI</span>' : ''}
+                        ${user.nama} ${isBest ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-black border border-amber-300">⭐ Karyawan Terbaik</span>' : ''}
                     </td>
                     <td class="px-5 py-4 font-bold text-slate-700 text-base">${namaPengguna}</td>
                     <td class="px-5 py-4 text-center font-black text-blue-700 text-xl">${myQty.toLocaleString()}</td>
@@ -996,17 +994,17 @@
                 aiAnalysisHTML = `
                     <div id="aiBannerContainer" class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-5 rounded-2xl shadow-md border border-blue-700 flex flex-col md:flex-row items-center justify-between gap-4">
                         <div class="flex items-center gap-4">
-                            <div class="text-4xl bg-blue-800 p-3 rounded-xl border border-blue-600">🤖⭐</div>
+                            <div class="text-4xl bg-blue-800 p-3 rounded-xl border border-blue-600">⭐</div>
                             <div>
-                                <span class="bg-amber-400 text-slate-900 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">AI Analisis Karyawan Terbaik</span>
+                                <span class="bg-amber-400 text-slate-900 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">Karyawan Terbaik Divisi ${dep}</span>
                                 <h4 class="text-xl font-black mt-1 text-white">${bestEmployee.nama} (${bestNamaLengkap})</h4>
-                                <p class="text-xs text-blue-200 mt-0.5">
-                                    Memiliki rata-rata harian <b>${bestEmployee.avgPerDay.toFixed(1)} item/hari</b> dengan keterlibatan membantu bagian lain sebanyak <b>${bestEmployee.otherPartsQty.toLocaleString()} item</b>. Konsistensi dan fleksibilitas kerja tertinggi di bagian ${dep}.
+                                <p class="text-xs text-blue-200 mt-0.5 leading-relaxed">
+                                    <b>Alasan Penobatan:</b> Karyawan ini dipilih karena mencatatkan rata-rata produktivitas tertinggi sebesar <b>${bestEmployee.avgPerDay.toFixed(1)} item/hari</b> dalam <b>${bestEmployee.daysCount} hari kerja</b>, serta menunjukkan fleksibilitas kerja tinggi dengan membantu divisi lain sebanyak <b>${bestEmployee.otherPartsQty.toLocaleString()} item</b>. Konsistensi dan kontribusinya melampaui standar operasional harian.
                                 </p>
                             </div>
                         </div>
                         <div class="bg-blue-800/80 px-4 py-3 rounded-xl border border-blue-600 text-center shrink-0">
-                            <span class="text-[10px] text-blue-300 font-bold uppercase block">Skor Kinerja AI</span>
+                            <span class="text-[10px] text-blue-300 font-bold uppercase block">Skor Kinerja</span>
                             <span class="text-2xl font-black text-amber-300">${bestEmployee.finalScore.toFixed(0)} pts</span>
                         </div>
                     </div>
@@ -1048,13 +1046,17 @@
                 if (best) {
                     let fullName = USER_NAME_MAP[best.nama] || best.nama;
                     contentHTML += `
-                        <div class="bg-amber-50/70 border border-amber-200 p-4 rounded-xl flex items-center justify-between">
-                            <div>
-                                <span class="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Divisi ${dep}</span>
-                                <h4 class="text-lg font-black text-slate-800 mt-1">${best.nama} (${fullName})</h4>
-                                <p class="text-xs text-slate-600 mt-0.5">Rata-rata: <b>${best.avgPerDay.toFixed(1)} item/hari</b> | Skor AI: <b>${best.finalScore.toFixed(0)} pts</b></p>
+                        <div class="bg-amber-50/70 border border-amber-200 p-4 rounded-xl flex flex-col gap-2">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span class="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Divisi ${dep}</span>
+                                    <h4 class="text-lg font-black text-slate-800 mt-1">${best.nama} (${fullName})</h4>
+                                </div>
+                                <div class="text-3xl">⭐</div>
                             </div>
-                            <div class="text-3xl">⭐</div>
+                            <p class="text-xs text-slate-700 bg-white/80 p-3 rounded-lg border border-amber-100 leading-relaxed">
+                                <b>Alasan:</b> Konsisten dengan rata-rata <b>${best.avgPerDay.toFixed(1)} item/hari</b> selama ${best.daysCount} hari aktif, serta aktif mendukung divisi lain dengan total tambahan <b>${best.otherPartsQty.toLocaleString()} item</b>. Skor total kinerja: <b>${best.finalScore.toFixed(0)} pts</b>.
+                            </p>
                         </div>
                     `;
                 } else {
@@ -1092,7 +1094,7 @@
             scrollArea.style.maxHeight = 'none'; scrollArea.style.overflow = 'visible';
             downloadBtn.style.display = 'none';
             
-            // Sembunyikan banner karyawan terbaik saat di-download
+            // Sembunyikan banner karyawan terbaik saat di-download agar hasil gambar bersih (tanpa tulisan karyawan terbaik)
             if (aiBanner) aiBanner.style.display = 'none';
 
             setTimeout(() => {
@@ -1108,7 +1110,7 @@
                     scrollArea.style.maxHeight = origScrollMaxH; scrollArea.style.overflow = origScrollOverflow;
                     downloadBtn.style.display = 'flex';
                     
-                    // Tampilkan kembali banner karyawan terbaik setelah selesai download
+                    // Tampilkan kembali banner setelah selesai download
                     if (aiBanner) aiBanner.style.display = 'flex';
                 });
             }, 150);
