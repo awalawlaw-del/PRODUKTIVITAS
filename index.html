@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -10,7 +10,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Plugin ChartDataLabels untuk memunculkan angka kecil di dalam/atas chart -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 
     <!-- Master Navigasi Tab -->
@@ -297,6 +296,14 @@
                 <div class="form-section">
                     <h2>Input Laporan (Honda)</h2>
                     
+                    <!-- BOX AUTO-FILL / UPLOAD DATA MENTAH SUPAYA TIDAK MANUAL -->
+                    <div style="background: #eff6ff; border: 2px dashed #3b82f6; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                        <label style="font-size: 11px; font-weight: 800; color: #1d4ed8; display: block; margin-bottom: 4px;">⚡ AUTO-FILL CEPAT (Upload Excel/CSV atau Paste Teks)</label>
+                        <input type="file" id="hondaRawFile" accept=".xlsx, .xls, .csv" style="font-size: 11px; width: 100%; margin-bottom: 8px;" onchange="autoFillHondaFromFile(event)">
+                        <textarea id="hondaRawText" placeholder="Atau paste teks laporan di sini, misal: Leveling 1350, Penyiapan 1473..." style="width: 100%; height: 50px; font-size: 11px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; resize: none;"></textarea>
+                        <button onclick="autoFillHondaFromText()" style="width: 100%; background: #2563eb; color: white; border: none; padding: 6px; border-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; margin-top: 4px;">✨ Ekstrak & Isi Otomatis</button>
+                    </div>
+
                     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                         <button class="btn-action btn-save" onclick="saveHondaData()" style="margin-top:0;">💾 Save Data Hari Ini</button>
                         <button class="btn-action btn-history" onclick="openHondaHistoryModal()" style="margin-top:0;">📂 History Tanggal</button>
@@ -398,7 +405,7 @@
                         </div>
                     </div>
 
-                    <!-- CHART GRAFIK KOMPARASI DI ATAS MAN POWER (DENGAN WARNA BERBEDA & ANGKA KECIL) -->
+                    <!-- CHART GRAFIK KOMPARASI DI ATAS MAN POWER -->
                     <div style="margin-top: 12px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
                         <h3 style="font-size: 11px; font-weight: 800; color: #1e293b; margin-bottom: 6px; text-transform: uppercase;">📊 GRAFIK KOMPARASI</h3>
                         <div style="position: relative; height: 130px;"><canvas id="hondaIntegratedChart"></canvas></div>
@@ -439,7 +446,6 @@
 
     <!-- SCRIPTS GABUNGAN -->
     <script>
-        // Daftarkan plugin datalabels secara global
         Chart.register(ChartDataLabels);
 
         function switchTab(target) {
@@ -717,13 +723,13 @@
                         {
                             label: 'Leveling / Picking (1)',
                             data: [totalLevelingFromHonda, totalPicking],
-                            backgroundColor: ['#ef4444', '#f59e0b'], // Warna dibedakan khusus
+                            backgroundColor: ['#ef4444', '#f59e0b'],
                             borderRadius: 6
                         },
                         {
                             label: 'Picking / Packing (2)',
                             data: [totalPicking, totalPacking],
-                            backgroundColor: ['#3b82f6', '#8b5cf6'], // Warna dibedakan khusus
+                            backgroundColor: ['#3b82f6', '#8b5cf6'],
                             borderRadius: 6
                         }
                     ]
@@ -968,7 +974,7 @@
         });
 
         // ==========================================
-        // FITUR LAPORAN HONDA & CHART TERINTEGRASI
+        // FITUR LAPORAN HONDA & AUTO-FILL / PARSER
         // ==========================================
         const hondaInputIds = [
             'in_tanggal', 'in_out_tgl', 'in_out_leveling', 'in_out_penyiapan', 'in_out_penyiapan_ket', 'in_out_packaging', 'in_out_packaging_ket',
@@ -1027,13 +1033,13 @@
                         {
                             label: 'Proses Awal',
                             data: [lvl, pick],
-                            backgroundColor: ['#ef4444', '#3b82f6'], // Warna dibedakan antara kolom Leveling dan Picking
+                            backgroundColor: ['#ef4444', '#3b82f6'],
                             borderRadius: 4
                         },
                         {
                             label: 'Proses Lanjutan',
                             data: [pick, pack],
-                            backgroundColor: ['#f59e0b', '#8b5cf6'], // Warna dibedakan antara kolom Picking dan Packing
+                            backgroundColor: ['#f59e0b', '#8b5cf6'],
                             borderRadius: 4
                         }
                     ]
@@ -1054,17 +1060,66 @@
             });
         }
 
+        // Fungsi Cerdas Parser / Ekstraksi Teks Mentah / File Excel untuk Auto-Fill Honda
+        function parseAndApplyHondaData(textOrRows) {
+            let fullText = typeof textOrRows === 'string' ? textOrRows : JSON.stringify(textOrRows);
+            fullText = fullText.toUpperCase();
+
+            // Ekstraksi angka menggunakan regex cerdas berdasarkan keyword terdekat
+            let extractNum = (keywords, defaultVal) => {
+                for (let kw of keywords) {
+                    let idx = fullText.indexOf(kw);
+                    if (idx !== -1) {
+                        let sub = fullText.substring(idx, idx + 40);
+                        let match = sub.match(/\d+/);
+                        if (match) return match[0];
+                    }
+                }
+                return defaultVal;
+            };
+
+            let foundLeveling = extractNum(['LEVELING', 'LEVL'], document.getElementById('in_out_leveling').value);
+            let foundPenyiapan = extractNum(['PENYIAPAN', 'PICKING', 'PICK'], document.getElementById('in_out_penyiapan').value);
+            let foundPacking = extractNum(['PACKING', 'PACK', 'PAK'], document.getElementById('in_out_packaging').value);
+            let foundPengiriman = extractNum(['PENGIRIMAN', 'RACE', 'RC'], document.getElementById('in_out_pengiriman').value);
+            let foundContainer = extractNum(['CONTAINER', 'CONT'], document.getElementById('in_in_container').value);
+            let foundReceiver = extractNum(['RECEIVER', 'RECV'], document.getElementById('in_in_receiver').value);
+            let foundMP = extractNum(['MAN POWER', 'MP', 'TOTAL MP'], document.getElementById('in_mp_total').value);
+
+            document.getElementById('in_out_leveling').value = foundLeveling;
+            document.getElementById('in_out_penyiapan').value = foundPenyiapan;
+            document.getElementById('in_out_packaging').value = foundPacking;
+            document.getElementById('in_out_pengiriman').value = foundPengiriman;
+            document.getElementById('in_in_container').value = foundContainer;
+            document.getElementById('in_in_receiver').value = foundReceiver;
+            document.getElementById('in_mp_total').value = foundMP;
+
+            updateDataHonda();
+            alert("✨ Berhasil! Data berhasil diekstrak dan form terisi otomatis. Silakan cek hasilnya di poster kanan.");
+        }
+
+        function autoFillHondaFromText() {
+            let txt = document.getElementById('hondaRawText').value;
+            if (!txt.trim()) { alert("⚠️ Kotak teks masih kosong!"); return; }
+            parseAndApplyHondaData(txt);
+        }
+
+        function autoFillHondaFromFile(e) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const wb = XLSX.read(new Uint8Array(evt.target.result), {type: 'array', raw: true});
+                let sheetData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:""});
+                parseAndApplyHondaData(sheetData);
+            };
+            if(e.target.files[0]) reader.readAsArrayBuffer(e.target.files[0]);
+        }
+
         function saveHondaData() {
             const currentDate = document.getElementById('in_tanggal').value;
-            if (!currentDate) {
-                alert("⚠️ Tanggal Laporan tidak boleh kosong!");
-                return;
-            }
+            if (!currentDate) { alert("⚠️ Tanggal Laporan tidak boleh kosong!"); return; }
 
             let formData = {};
-            hondaInputIds.forEach(id => {
-                formData[id] = document.getElementById(id).value;
-            });
+            hondaInputIds.forEach(id => { formData[id] = document.getElementById(id).value; });
 
             let allHistory = JSON.parse(localStorage.getItem('honda_reports_history') || '{}');
             allHistory[currentDate] = formData;
@@ -1080,9 +1135,7 @@
             if (latestDate && allHistory[latestDate]) {
                 let data = allHistory[latestDate];
                 hondaInputIds.forEach(id => {
-                    if (data[id] !== undefined) {
-                        document.getElementById(id).value = data[id];
-                    }
+                    if (data[id] !== undefined) document.getElementById(id).value = data[id];
                 });
                 updateDataHonda();
             }
@@ -1109,18 +1162,14 @@
             document.getElementById('hondaHistoryModal').classList.remove('hidden');
         }
 
-        function closeHondaHistoryModal() {
-            document.getElementById('hondaHistoryModal').classList.add('hidden');
-        }
+        function closeHondaHistoryModal() { document.getElementById('hondaHistoryModal').classList.add('hidden'); }
 
         function loadHondaHistoryByDate(date) {
             let allHistory = JSON.parse(localStorage.getItem('honda_reports_history') || '{}');
             if (allHistory[date]) {
                 let data = allHistory[date];
                 hondaInputIds.forEach(id => {
-                    if (data[id] !== undefined) {
-                        document.getElementById(id).value = data[id];
-                    }
+                    if (data[id] !== undefined) document.getElementById(id).value = data[id];
                 });
                 updateDataHonda();
                 localStorage.setItem('honda_latest_date', date);
