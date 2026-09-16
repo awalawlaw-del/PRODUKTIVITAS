@@ -973,9 +973,12 @@
                 let isBest = bestEmployee && bestEmployee.nama === user.nama;
                 let rowHighlight = isBest ? 'bg-amber-50/70 border-l-4 border-amber-500' : '';
 
+                // Label Karyawan Terbaik pada baris tabel (disembunyikan otomatis saat download via kelas .best-badge-label)
+                let bestBadgeLabel = isBest ? '<span class="best-badge-label bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-black border border-amber-300">⭐ Karyawan Terbaik</span>' : '';
+
                 html += `<tr class="hover:bg-slate-50 transition-colors ${rowHighlight}">
                     <td class="px-5 py-4 font-extrabold text-slate-800 text-base flex items-center gap-2">
-                        ${user.nama} ${isBest ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-black border border-amber-300">⭐ Karyawan Terbaik</span>' : ''}
+                        ${user.nama} ${bestBadgeLabel}
                     </td>
                     <td class="px-5 py-4 font-bold text-slate-700 text-base">${namaPengguna}</td>
                     <td class="px-5 py-4 text-center font-black text-blue-700 text-xl">${myQty.toLocaleString()}</td>
@@ -1083,7 +1086,7 @@
             const card = document.getElementById('modalCard');
             const scrollArea = document.getElementById('modalScrollArea');
             const downloadBtn = document.getElementById('modalDownloadBtn');
-            const aiBanner = document.getElementById('aiBannerContainer'); // Ambil elemen banner karyawan terbaik
+            const aiBanner = document.getElementById('aiBannerContainer'); 
 
             const origCardMaxH = card.style.maxHeight;
             const origCardOverflow = card.style.overflow;
@@ -1094,8 +1097,10 @@
             scrollArea.style.maxHeight = 'none'; scrollArea.style.overflow = 'visible';
             downloadBtn.style.display = 'none';
             
-            // Sembunyikan banner karyawan terbaik saat di-download agar hasil gambar bersih (tanpa tulisan karyawan terbaik)
+            // Sembunyikan banner atas karyawan terbaik dan badge tulisan karyawan terbaik pada baris tabel saat di-download
             if (aiBanner) aiBanner.style.display = 'none';
+            const bestBadges = document.querySelectorAll('.best-badge-label');
+            bestBadges.forEach(el => el.style.display = 'none');
 
             setTimeout(() => {
                 html2canvas(card, { scale: 2, useCORS: true, windowWidth: card.scrollWidth, windowHeight: card.scrollHeight }).then(c => {
@@ -1110,8 +1115,9 @@
                     scrollArea.style.maxHeight = origScrollMaxH; scrollArea.style.overflow = origScrollOverflow;
                     downloadBtn.style.display = 'flex';
                     
-                    // Tampilkan kembali banner setelah selesai download
+                    // Tampilkan kembali banner dan badge setelah selesai download
                     if (aiBanner) aiBanner.style.display = 'flex';
+                    bestBadges.forEach(el => el.style.display = 'inline-block');
                 });
             }, 150);
         }
