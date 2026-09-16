@@ -973,8 +973,8 @@
                 let isBest = bestEmployee && bestEmployee.nama === user.nama;
                 let rowHighlight = isBest ? 'bg-amber-50/70 border-l-4 border-amber-500' : '';
 
-                // Label Karyawan Terbaik pada baris tabel (disembunyikan otomatis saat download via kelas .best-badge-label)
-                let bestBadgeLabel = isBest ? '<span class="best-badge-label bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-black border border-amber-300">⭐ Karyawan Terbaik</span>' : '';
+                // Label Karyawan Terbaik pada baris tabel dihilangkan sesuai permintaan
+                let bestBadgeLabel = '';
 
                 html += `<tr class="hover:bg-slate-50 transition-colors ${rowHighlight}">
                     <td class="px-5 py-4 font-extrabold text-slate-800 text-base flex items-center gap-2">
@@ -1097,7 +1097,6 @@
             scrollArea.style.maxHeight = 'none'; scrollArea.style.overflow = 'visible';
             downloadBtn.style.display = 'none';
             
-            // Sembunyikan banner atas karyawan terbaik dan badge tulisan karyawan terbaik pada baris tabel saat di-download
             if (aiBanner) aiBanner.style.display = 'none';
             const bestBadges = document.querySelectorAll('.best-badge-label');
             bestBadges.forEach(el => el.style.display = 'none');
@@ -1115,7 +1114,6 @@
                     scrollArea.style.maxHeight = origScrollMaxH; scrollArea.style.overflow = origScrollOverflow;
                     downloadBtn.style.display = 'flex';
                     
-                    // Tampilkan kembali banner dan badge setelah selesai download
                     if (aiBanner) aiBanner.style.display = 'flex';
                     bestBadges.forEach(el => el.style.display = 'inline-block');
                 });
