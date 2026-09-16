@@ -130,9 +130,17 @@
                         <h1 class="text-2xl font-extrabold text-slate-800 mb-1">Monitoring Produktivitas Gudang</h1>
                         <p class="text-slate-500 text-sm">Sistem Master Roster: Semua karyawan selalu tampil di divisi asalnya.</p>
                     </div>
-                    <button onclick="clearHistory()" class="bg-red-50 text-red-600 text-xs font-bold px-3 py-2 rounded-lg border border-red-200 hover:bg-red-100 transition">
-                        🗑️ Reset History Excel
-                    </button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="openGlobalBestEmployeeModal()" class="bg-amber-50 text-amber-600 text-xs font-bold px-3 py-2 rounded-lg border border-amber-200 hover:bg-amber-100 transition flex items-center gap-1.5">
+                            <span>⭐</span> Cek Karyawan Terbaik
+                        </button>
+                        <button onclick="exportFilteredExcel()" class="bg-emerald-50 text-emerald-600 text-xs font-bold px-3 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1.5">
+                            <span>📥</span> Export Excel Berdasarkan Tanggal
+                        </button>
+                        <button onclick="clearHistory()" class="bg-red-50 text-red-600 text-xs font-bold px-3 py-2 rounded-lg border border-red-200 hover:bg-red-100 transition">
+                            🗑️ Reset History Excel
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -264,6 +272,7 @@
                     </div>
                 </div>
                 <div class="p-6 overflow-y-auto" id="modalScrollArea">
+                    <div id="aiAnalysisBox" class="mb-6"></div>
                     <div id="modalSummaryContainer" class="mb-6"></div>
                     <div class="overflow-x-auto border border-slate-200 rounded-xl shadow-inner bg-white">
                         <table class="min-w-full divide-y divide-slate-200">
@@ -286,19 +295,21 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODAL PENJELASAN KARYAWAN TERBAIK -->
-    <div id="modalTerbaik" class="fixed inset-0 bg-slate-900 bg-opacity-60 hidden z-50 flex justify-center items-center backdrop-blur-sm p-4">
-        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 relative">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="text-xl font-black text-amber-600 flex items-center gap-2">⭐ KARYAWAN TERBAIK</h3>
-                <button onclick="closeTerbaikModal()" class="text-slate-400 hover:text-red-500 font-black text-2xl leading-none">&times;</button>
+        <!-- MODAL KARYAWAN TERBAIK GLOBAL -->
+        <div id="globalBestModal" class="fixed inset-0 bg-slate-900 bg-opacity-60 hidden z-50 flex justify-center items-center backdrop-blur-sm transition-opacity p-4">
+            <div class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+                <div class="bg-amber-50 px-6 py-5 border-b border-amber-100 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-xl font-extrabold text-amber-900 flex items-center gap-2">⭐ Rekap Karyawan Terbaik AI</h3>
+                        <p class="text-xs text-amber-700 font-medium mt-0.5">Berdasarkan periode filter tanggal saat ini</p>
+                    </div>
+                    <button onclick="closeGlobalBestModal()" class="text-slate-400 hover:text-red-500 font-black text-3xl leading-none">&times;</button>
+                </div>
+                <div class="p-6 overflow-y-auto" id="globalBestContent">
+                    <!-- Konten Rekap Diisi via JS -->
+                </div>
             </div>
-            <div id="terbaikContent" class="text-sm text-slate-700 space-y-2 mb-5">
-                <!-- Konten dinamis penjelasan -->
-            </div>
-            <button onclick="closeTerbaikModal()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 rounded-xl transition">Tutup</button>
         </div>
     </div>
 
@@ -672,6 +683,41 @@
             }
         }
 
+        // ==========================================
+        // FITUR EXPORT EXCEL BERDASARKAN TANGGAL
+        // ==========================================
+        function exportFilteredExcel() {
+            const sDate = document.getElementById('startDate').value;
+            const eDate = document.getElementById('endDate').value;
+
+            if (!sDate && !eDate) {
+                alert("⚠️ Harap tentukan Periode Tanggal (Mulai & Akhir) terlebih dahulu untuk mengekspor data yang spesifik!");
+                return;
+            }
+
+            let filteredRows = excelData.filter(row => {
+                let tgl = normalizeDate(row[getColumnKey(row, ['tanggal','tgl','date'])]);
+                if (!tgl) return false;
+                let inRange = true;
+                if (sDate && tgl < sDate) inRange = false;
+                if (eDate && tgl > eDate) inRange = false;
+                return inRange;
+            });
+
+            if (filteredRows.length === 0) {
+                alert("⚠️ Tidak ada data ditemukan pada rentang tanggal tersebut.");
+                return;
+            }
+
+            const worksheet = XLSX.utils.json_to_sheet(filteredRows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Produktivitas_Filter");
+            
+            let filename = `Laporan_Produktivitas_${sDate || 'Awal'}_SD_${eDate || 'Akhir'}.xlsx`;
+            XLSX.writeFile(workbook, filename);
+            alert(`✅ Berhasil mengekspor ${filteredRows.length} baris data ke file ${filename}`);
+        }
+
         function renderCharts(totals) {
             const sDate = document.getElementById('startDate').value;
             const eDate = document.getElementById('endDate').value;
@@ -800,6 +846,65 @@
             });
         }
 
+        // ==========================================
+        // FITUR AI ANALISIS KARYAWAN TERBAIK MASING-MASING BAGIAN
+        // ==========================================
+        function calculateBestEmployeeAI(dep, filteredUsers) {
+            // Filter exclude user ASTBARMA0113 dari nominasi
+            let eligibleUsers = filteredUsers.filter(u => u.nama !== "ASTBARMA0113");
+            if (!eligibleUsers || eligibleUsers.length === 0) return null;
+
+            // Hitung jumlah hari aktif unik per user dari excelData berdasarkan rentang tanggal
+            const sDate = document.getElementById('startDate').value;
+            const eDate = document.getElementById('endDate').value;
+            
+            let userActiveDays = {};
+            excelData.forEach(row => {
+                let tgl = normalizeDate(row[getColumnKey(row, ['tanggal','tgl','date'])]);
+                let nama = String(row[getColumnKey(row, ['nama','user'])] || '').trim().toUpperCase();
+                let b = getBagianExcel(row[getColumnKey(row, ['bagian','divisi','dept'])]);
+                
+                let inRange = true;
+                if (!tgl) inRange = false;
+                if (sDate && tgl < sDate) inRange = false;
+                if (eDate && tgl > eDate) inRange = false;
+
+                if (inRange && nama && b === dep) {
+                    if (!userActiveDays[nama]) userActiveDays[nama] = new Set();
+                    userActiveDays[nama].add(tgl);
+                }
+            });
+
+            let scoredUsers = eligibleUsers.map(user => {
+                let daysCount = userActiveDays[user.nama] ? userActiveDays[user.nama].size : 1;
+                if (daysCount === 0) daysCount = 1;
+                
+                let mainQty = user.divQty[dep] || 0;
+                let avgPerDay = mainQty / daysCount;
+
+                let otherPartsQty = 0;
+                ['PICKER', 'PACKER', 'RECEIVER'].forEach(otherDep => {
+                    if (otherDep !== dep) {
+                        otherPartsQty += (user.divQty[otherDep] || 0);
+                    }
+                });
+
+                let supportScoreBonus = otherPartsQty * 0.5; 
+                let finalScore = avgPerDay + supportScoreBonus;
+
+                return {
+                    ...user,
+                    daysCount: daysCount,
+                    avgPerDay: avgPerDay,
+                    otherPartsQty: otherPartsQty,
+                    finalScore: finalScore
+                };
+            });
+
+            scoredUsers.sort((a, b) => b.finalScore - a.finalScore);
+            return scoredUsers[0]; 
+        }
+
         function showDetail(dep) {
             const sDate = document.getElementById('startDate').value;
             const eDate = document.getElementById('endDate').value;
@@ -820,6 +925,8 @@
             let totalPersonnel = filteredUsers.length;
             let gacorCount = 0;
             let needGaspolCount = 0;
+
+            let bestEmployee = calculateBestEmployeeAI(dep, filteredUsers);
 
             let html = '';
             filteredUsers.forEach(user => {
@@ -865,23 +972,14 @@
                 let namaPengguna = USER_NAME_MAP[user.nama] || "-";
                 let tdPalletHTML = showPallet ? `<td class="px-5 py-4 text-center font-black text-emerald-600 text-xl">${myPallet > 0 ? myPallet : '-'}</td>` : '';
 
-                // Logika khusus untuk memunculkan badge KARYAWAN TERBAIK pada YUDA (ASTCITRA4298) di Receiver
-                let bestEmployeeBadge = '';
-                if (user.nama === 'ASTCITRA4298' && dep === 'RECEIVER') {
-                    bestEmployeeBadge = `
-                        <div class="inline-flex flex-col items-center justify-center p-1.5 bg-yellow-100 rounded-full border border-yellow-300 ml-2 cursor-pointer hover:bg-yellow-200 transition" onclick="openTerbaikModal('Yuda', '${myQty}', '${myPallet}')" title="Klik untuk lihat alasan">
-                            <span class="text-xs">⭐</span>
-                            <span class="text-[9px] font-extrabold text-yellow-800 leading-none exclude-download">KARYAWAN TERBAIK</span>
-                        </div>
-                    `;
-                }
+                let isBest = bestEmployee && bestEmployee.nama === user.nama;
+                let rowHighlight = isBest ? 'bg-amber-50/70 border-l-4 border-amber-500' : '';
 
-                html += `<tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-5 py-4 font-extrabold text-slate-800 text-base">${user.nama}</td>
-                    <td class="px-5 py-4 font-bold text-slate-700 text-base flex items-center justify-between">
-                        <span>${namaPengguna}</span>
-                        ${bestEmployeeBadge}
+                html += `<tr class="hover:bg-slate-50 transition-colors ${rowHighlight}">
+                    <td class="px-5 py-4 font-extrabold text-slate-800 text-base flex items-center gap-2">
+                        ${user.nama} ${isBest ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-black border border-amber-300">⭐ Karyawan Terbaik AI</span>' : ''}
                     </td>
+                    <td class="px-5 py-4 font-bold text-slate-700 text-base">${namaPengguna}</td>
                     <td class="px-5 py-4 text-center font-black text-blue-700 text-xl">${myQty.toLocaleString()}</td>
                     ${tdPalletHTML}
                     <td class="px-5 py-4 text-center text-sm font-bold text-indigo-700 bg-indigo-50/50">${extraColText}</td>
@@ -892,8 +990,31 @@
                 </tr>`;
             });
 
+            let aiAnalysisHTML = '';
+            if (bestEmployee) {
+                let bestNamaLengkap = USER_NAME_MAP[bestEmployee.nama] || bestEmployee.nama;
+                aiAnalysisHTML = `
+                    <div id="aiBannerContainer" class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-5 rounded-2xl shadow-md border border-blue-700 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <div class="text-4xl bg-blue-800 p-3 rounded-xl border border-blue-600">🤖⭐</div>
+                            <div>
+                                <span class="bg-amber-400 text-slate-900 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">AI Analisis Karyawan Terbaik</span>
+                                <h4 class="text-xl font-black mt-1 text-white">${bestEmployee.nama} (${bestNamaLengkap})</h4>
+                                <p class="text-xs text-blue-200 mt-0.5">
+                                    Memiliki rata-rata harian <b>${bestEmployee.avgPerDay.toFixed(1)} item/hari</b> dengan keterlibatan membantu bagian lain sebanyak <b>${bestEmployee.otherPartsQty.toLocaleString()} item</b>. Konsistensi dan fleksibilitas kerja tertinggi di bagian ${dep}.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="bg-blue-800/80 px-4 py-3 rounded-xl border border-blue-600 text-center shrink-0">
+                            <span class="text-[10px] text-blue-300 font-bold uppercase block">Skor Kinerja AI</span>
+                            <span class="text-2xl font-black text-amber-300">${bestEmployee.finalScore.toFixed(0)} pts</span>
+                        </div>
+                    </div>
+                `;
+            }
+
             let summaryHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                         <div><p class="text-xs font-bold text-slate-500 uppercase">Total Personil</p><h4 class="text-3xl font-black text-slate-800 mt-1">${totalPersonnel}</h4></div><span class="text-3xl">👥</span>
                     </div>
@@ -906,47 +1027,73 @@
                 </div>
             `;
 
+            document.getElementById('aiAnalysisBox').innerHTML = aiAnalysisHTML;
             document.getElementById('modalSummaryContainer').innerHTML = summaryHTML;
             document.getElementById('modalTableBody').innerHTML = html;
             document.getElementById('detailModal').classList.remove('hidden');
         }
 
+        // ==========================================
+        // MENU GLOBAL CEK KARYAWAN TERBAIK
+        // ==========================================
+        function openGlobalBestEmployeeModal() {
+            const sDate = document.getElementById('startDate').value;
+            const eDate = document.getElementById('endDate').value;
+            if (!sDate && !eDate) { alert("⚠️ Harap tentukan Periode Tanggal (Mulai & Akhir) terlebih dahulu!"); return; }
+
+            let contentHTML = `<div class="space-y-4">`;
+            ['PICKER', 'PACKER', 'RECEIVER'].forEach(dep => {
+                let filteredUsers = currentFilteredData.filter(i => i.bagian === dep);
+                let best = calculateBestEmployeeAI(dep, filteredUsers);
+                if (best) {
+                    let fullName = USER_NAME_MAP[best.nama] || best.nama;
+                    contentHTML += `
+                        <div class="bg-amber-50/70 border border-amber-200 p-4 rounded-xl flex items-center justify-between">
+                            <div>
+                                <span class="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Divisi ${dep}</span>
+                                <h4 class="text-lg font-black text-slate-800 mt-1">${best.nama} (${fullName})</h4>
+                                <p class="text-xs text-slate-600 mt-0.5">Rata-rata: <b>${best.avgPerDay.toFixed(1)} item/hari</b> | Skor AI: <b>${best.finalScore.toFixed(0)} pts</b></p>
+                            </div>
+                            <div class="text-3xl">⭐</div>
+                        </div>
+                    `;
+                } else {
+                    contentHTML += `
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                            <span class="text-xs font-bold text-slate-400 uppercase">Divisi ${dep}</span>
+                            <p class="text-sm text-slate-500 mt-1">Tidak ada data karyawan pada periode ini.</p>
+                        </div>
+                    `;
+                }
+            });
+            contentHTML += `</div>`;
+            document.getElementById('globalBestContent').innerHTML = contentHTML;
+            document.getElementById('globalBestModal').classList.remove('hidden');
+        }
+
+        function closeGlobalBestModal() {
+            document.getElementById('globalBestModal').classList.add('hidden');
+        }
+
         function closeModal() { document.getElementById('detailModal').classList.add('hidden'); }
         
-        // Fungsi untuk menampilkan penjelasan Karyawan Terbaik saat diklik
-        function openTerbaikModal(nama, item, pallet) {
-            const content = `
-                <p><b>${nama}</b> dinobatkan sebagai <b>KARYAWAN TERBAIK</b> pada periode ini karena menunjukkan dedikasi kerja yang sangat luar biasa.</p>
-                <ul class="list-disc pl-5 mt-2 space-y-1">
-                    <li>Pencapaian total item mencapai <b>${item} Item</b> (jauh melampaui batas minimum target).</li>
-                    <li>Berhasil menyelesaikan <b>${pallet} Pallet</b> dengan status performa konsisten dalam kategori <b>GACOR!</b></li>
-                    <li>Tingkat capaian efisiensi kerja dan kedisiplinan operasional yang tinggi secara konsisten.</li>
-                </ul>
-            `;
-            document.getElementById('terbaikContent').innerHTML = content;
-            document.getElementById('modalTerbaik').classList.remove('hidden');
-        }
-
-        function closeTerbaikModal() {
-            document.getElementById('modalTerbaik').classList.add('hidden');
-        }
-
         function downloadModalImage() {
             const card = document.getElementById('modalCard');
             const scrollArea = document.getElementById('modalScrollArea');
             const downloadBtn = document.getElementById('modalDownloadBtn');
+            const aiBanner = document.getElementById('aiBannerContainer'); // Ambil elemen banner karyawan terbaik
+
             const origCardMaxH = card.style.maxHeight;
             const origCardOverflow = card.style.overflow;
             const origScrollMaxH = scrollArea.style.maxHeight;
             const origScrollOverflow = scrollArea.style.overflow;
 
-            // Sembunyikan elemen badge "KARYAWAN TERBAIK" khusus saat proses download gambar daily
-            const excludeElements = document.querySelectorAll('.exclude-download');
-            excludeElements.forEach(el => el.style.display = 'none');
-
             card.style.maxHeight = 'none'; card.style.overflow = 'visible';
             scrollArea.style.maxHeight = 'none'; scrollArea.style.overflow = 'visible';
             downloadBtn.style.display = 'none';
+            
+            // Sembunyikan banner karyawan terbaik saat di-download
+            if (aiBanner) aiBanner.style.display = 'none';
 
             setTimeout(() => {
                 html2canvas(card, { scale: 2, useCORS: true, windowWidth: card.scrollWidth, windowHeight: card.scrollHeight }).then(c => {
@@ -957,11 +1104,12 @@
                     a.download = `Evaluasi_Detail_${currentDetailDep}_${dateStr}.png`; 
                     a.href = c.toDataURL(); a.click();
                     
-                    // Kembalikan kondisi setelah download selesai
-                    excludeElements.forEach(el => el.style.display = '');
                     card.style.maxHeight = origCardMaxH; card.style.overflow = origCardOverflow;
                     scrollArea.style.maxHeight = origScrollMaxH; scrollArea.style.overflow = origScrollOverflow;
                     downloadBtn.style.display = 'flex';
+                    
+                    // Tampilkan kembali banner karyawan terbaik setelah selesai download
+                    if (aiBanner) aiBanner.style.display = 'flex';
                 });
             }, 150);
         }
