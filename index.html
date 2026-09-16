@@ -130,9 +130,14 @@
                         <h1 class="text-2xl font-extrabold text-slate-800 mb-1">Monitoring Produktivitas Gudang</h1>
                         <p class="text-slate-500 text-sm">Sistem Master Roster: Semua karyawan selalu tampil di divisi asalnya.</p>
                     </div>
-                    <button onclick="clearHistory()" class="bg-red-50 text-red-600 text-xs font-bold px-3 py-2 rounded-lg border border-red-200 hover:bg-red-100 transition">
-                        🗑️ Reset History Excel
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="exportFilteredExcel()" class="bg-emerald-50 text-emerald-600 text-xs font-bold px-3 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1.5">
+                            <span>📥</span> Export Excel Berdasarkan Tanggal
+                        </button>
+                        <button onclick="clearHistory()" class="bg-red-50 text-red-600 text-xs font-bold px-3 py-2 rounded-lg border border-red-200 hover:bg-red-100 transition">
+                            🗑️ Reset History Excel
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -264,6 +269,7 @@
                     </div>
                 </div>
                 <div class="p-6 overflow-y-auto" id="modalScrollArea">
+                    <div id="aiAnalysisBox" class="mb-6"></div>
                     <div id="modalSummaryContainer" class="mb-6"></div>
                     <div class="overflow-x-auto border border-slate-200 rounded-xl shadow-inner bg-white">
                         <table class="min-w-full divide-y divide-slate-200">
@@ -658,6 +664,41 @@
             }
         }
 
+        // ==========================================
+        // FITUR EXPORT EXCEL BERDASARKAN TANGGAL
+        // ==========================================
+        function exportFilteredExcel() {
+            const sDate = document.getElementById('startDate').value;
+            const eDate = document.getElementById('endDate').value;
+
+            if (!sDate && !eDate) {
+                alert("⚠️ Harap tentukan Periode Tanggal (Mulai & Akhir) terlebih dahulu untuk mengekspor data yang spesifik!");
+                return;
+            }
+
+            let filteredRows = excelData.filter(row => {
+                let tgl = normalizeDate(row[getColumnKey(row, ['tanggal','tgl','date'])]);
+                if (!tgl) return false;
+                let inRange = true;
+                if (sDate && tgl < sDate) inRange = false;
+                if (eDate && tgl > eDate) inRange = false;
+                return inRange;
+            });
+
+            if (filteredRows.length === 0) {
+                alert("⚠️ Tidak ada data ditemukan pada rentang tanggal tersebut.");
+                return;
+            }
+
+            const worksheet = XLSX.utils.json_to_sheet(filteredRows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Produktivitas_Filter");
+            
+            let filename = `Laporan_Produktivitas_${sDate || 'Awal'}_SD_${eDate || 'Akhir'}.xlsx`;
+            XLSX.writeFile(workbook, filename);
+            alert(`✅ Berhasil mengekspor ${filteredRows.length} baris data ke file ${filename}`);
+        }
+
         function renderCharts(totals) {
             const sDate = document.getElementById('startDate').value;
             const eDate = document.getElementById('endDate').value;
@@ -717,13 +758,13 @@
                         {
                             label: 'Leveling / Picking (1)',
                             data: [totalLevelingFromHonda, totalPicking],
-                            backgroundColor: ['#ef4444', '#f59e0b'], // Warna dibedakan khusus
+                            backgroundColor: ['#ef4444', '#f59e0b'],
                             borderRadius: 6
                         },
                         {
                             label: 'Picking / Packing (2)',
                             data: [totalPicking, totalPacking],
-                            backgroundColor: ['#3b82f6', '#8b5cf6'], // Warna dibedakan khusus
+                            backgroundColor: ['#3b82f6', '#8b5cf6'],
                             borderRadius: 6
                         }
                     ]
@@ -786,6 +827,66 @@
             });
         }
 
+        // ==========================================
+        // FITUR AI ANALISIS KARYAWAN TERBAIK MASING-MASING BAGIAN
+        // ==========================================
+        function calculateBestEmployeeAI(dep, filteredUsers) {
+            if (!filteredUsers || filteredUsers.length === 0) return null;
+
+            // Hitung jumlah hari aktif unik per user dari excelData berdasarkan rentang tanggal
+            const sDate = document.getElementById('startDate').value;
+            const eDate = document.getElementById('endDate').value;
+            
+            let userActiveDays = {};
+            excelData.forEach(row => {
+                let tgl = normalizeDate(row[getColumnKey(row, ['tanggal','tgl','date'])]);
+                let nama = String(row[getColumnKey(row, ['nama','user'])] || '').trim().toUpperCase();
+                let b = getBagianExcel(row[getColumnKey(row, ['bagian','divisi','dept'])]);
+                
+                let inRange = true;
+                if (!tgl) inRange = false;
+                if (sDate && tgl < sDate) inRange = false;
+                if (eDate && tgl > eDate) inRange = false;
+
+                if (inRange && nama && b === dep) {
+                    if (!userActiveDays[nama]) userActiveDays[nama] = new Set();
+                    userActiveDays[nama].add(tgl);
+                }
+            });
+
+            let scoredUsers = filteredUsers.map(user => {
+                let daysCount = userActiveDays[user.nama] ? userActiveDays[user.nama].size : 1;
+                if (daysCount === 0) daysCount = 1;
+                
+                let mainQty = user.divQty[dep] || 0;
+                let avgPerDay = mainQty / daysCount;
+
+                // Hitung poin keterlibatan membantu bagian lain (misalnya picker bantu packer/receiver atau sebaliknya)
+                let otherPartsQty = 0;
+                ['PICKER', 'PACKER', 'RECEIVER'].forEach(otherDep => {
+                    if (otherDep !== dep) {
+                        otherPartsQty += (user.divQty[otherDep] || 0);
+                    }
+                });
+
+                // Bobot penilaian AI: Rata-rata item utama harian (70%) + Skor Keterlibatan Membantu Bagian Lain (30%)
+                let supportScoreBonus = otherPartsQty * 0.5; 
+                let finalScore = avgPerDay + supportScoreBonus;
+
+                return {
+                    ...user,
+                    daysCount: daysCount,
+                    avgPerDay: avgPerDay,
+                    otherPartsQty: otherPartsQty,
+                    finalScore: finalScore
+                };
+            });
+
+            // Urutkan berdasarkan skor tertinggi
+            scoredUsers.sort((a, b) => b.finalScore - a.finalScore);
+            return scoredUsers[0]; // Karyawan terbaik
+        }
+
         function showDetail(dep) {
             const sDate = document.getElementById('startDate').value;
             const eDate = document.getElementById('endDate').value;
@@ -806,6 +907,9 @@
             let totalPersonnel = filteredUsers.length;
             let gacorCount = 0;
             let needGaspolCount = 0;
+
+            // Jalankan AI Analisis Karyawan Terbaik
+            let bestEmployee = calculateBestEmployeeAI(dep, filteredUsers);
 
             let html = '';
             filteredUsers.forEach(user => {
@@ -851,8 +955,13 @@
                 let namaPengguna = USER_NAME_MAP[user.nama] || "-";
                 let tdPalletHTML = showPallet ? `<td class="px-5 py-4 text-center font-black text-emerald-600 text-xl">${myPallet > 0 ? myPallet : '-'}</td>` : '';
 
-                html += `<tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-5 py-4 font-extrabold text-slate-800 text-base">${user.nama}</td>
+                let isBest = bestEmployee && bestEmployee.nama === user.nama;
+                let rowHighlight = isBest ? 'bg-amber-50/70 border-l-4 border-amber-500' : '';
+
+                html += `<tr class="hover:bg-slate-50 transition-colors ${rowHighlight}">
+                    <td class="px-5 py-4 font-extrabold text-slate-800 text-base flex items-center gap-2">
+                        ${user.nama} ${isBest ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-black border border-amber-300">⭐ Karyawan Terbaik AI</span>' : ''}
+                    </td>
                     <td class="px-5 py-4 font-bold text-slate-700 text-base">${namaPengguna}</td>
                     <td class="px-5 py-4 text-center font-black text-blue-700 text-xl">${myQty.toLocaleString()}</td>
                     ${tdPalletHTML}
@@ -864,8 +973,32 @@
                 </tr>`;
             });
 
+            // Kotak Rekomendasi AI Analisis Karyawan Terbaik
+            let aiAnalysisHTML = '';
+            if (bestEmployee) {
+                let bestNamaLengkap = USER_NAME_MAP[bestEmployee.nama] || bestEmployee.nama;
+                aiAnalysisHTML = `
+                    <div class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-5 rounded-2xl shadow-md border border-blue-700 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <div class="text-4xl bg-blue-800 p-3 rounded-xl border border-blue-600">🤖⭐</div>
+                            <div>
+                                <span class="bg-amber-400 text-slate-900 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">AI Analisis Karyawan Terbaik</span>
+                                <h4 class="text-xl font-black mt-1 text-white">${bestEmployee.nama} (${bestNamaLengkap})</h4>
+                                <p class="text-xs text-blue-200 mt-0.5">
+                                    Memiliki rata-rata harian <b>${bestEmployee.avgPerDay.toFixed(1)} item/hari</b> dengan keterlibatan membantu bagian lain sebanyak <b>${bestEmployee.otherPartsQty.toLocaleString()} item</b>. Konsistensi dan fleksibilitas kerja tertinggi di bagian ${dep}.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="bg-blue-800/80 px-4 py-3 rounded-xl border border-blue-600 text-center shrink-0">
+                            <span class="text-[10px] text-blue-300 font-bold uppercase block">Skor Kinerja AI</span>
+                            <span class="text-2xl font-black text-amber-300">${bestEmployee.finalScore.toFixed(0)} pts</span>
+                        </div>
+                    </div>
+                `;
+            }
+
             let summaryHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                         <div><p class="text-xs font-bold text-slate-500 uppercase">Total Personil</p><h4 class="text-3xl font-black text-slate-800 mt-1">${totalPersonnel}</h4></div><span class="text-3xl">👥</span>
                     </div>
@@ -878,6 +1011,7 @@
                 </div>
             `;
 
+            document.getElementById('aiAnalysisBox').innerHTML = aiAnalysisHTML;
             document.getElementById('modalSummaryContainer').innerHTML = summaryHTML;
             document.getElementById('modalTableBody').innerHTML = html;
             document.getElementById('detailModal').classList.remove('hidden');
@@ -1027,13 +1161,13 @@
                         {
                             label: 'Proses Awal',
                             data: [lvl, pick],
-                            backgroundColor: ['#ef4444', '#3b82f6'], // Warna dibedakan antara kolom Leveling dan Picking
+                            backgroundColor: ['#ef4444', '#3b82f6'],
                             borderRadius: 4
                         },
                         {
                             label: 'Proses Lanjutan',
                             data: [pick, pack],
-                            backgroundColor: ['#f59e0b', '#8b5cf6'], // Warna dibedakan antara kolom Picking dan Packing
+                            backgroundColor: ['#f59e0b', '#8b5cf6'],
                             borderRadius: 4
                         }
                     ]
