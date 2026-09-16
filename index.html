@@ -130,7 +130,10 @@
                         <h1 class="text-2xl font-extrabold text-slate-800 mb-1">Monitoring Produktivitas Gudang</h1>
                         <p class="text-slate-500 text-sm">Sistem Master Roster: Semua karyawan selalu tampil di divisi asalnya.</p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="openGlobalBestEmployeeModal()" class="bg-amber-50 text-amber-600 text-xs font-bold px-3 py-2 rounded-lg border border-amber-200 hover:bg-amber-100 transition flex items-center gap-1.5">
+                            <span>⭐</span> Cek Karyawan Terbaik
+                        </button>
                         <button onclick="exportFilteredExcel()" class="bg-emerald-50 text-emerald-600 text-xs font-bold px-3 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1.5">
                             <span>📥</span> Export Excel Berdasarkan Tanggal
                         </button>
@@ -289,6 +292,22 @@
                             <tbody id="modalTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL KARYAWAN TERBAIK GLOBAL -->
+        <div id="globalBestModal" class="fixed inset-0 bg-slate-900 bg-opacity-60 hidden z-50 flex justify-center items-center backdrop-blur-sm transition-opacity p-4">
+            <div class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+                <div class="bg-amber-50 px-6 py-5 border-b border-amber-100 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-xl font-extrabold text-amber-900 flex items-center gap-2">⭐ Rekap Karyawan Terbaik AI</h3>
+                        <p class="text-xs text-amber-700 font-medium mt-0.5">Berdasarkan periode filter tanggal saat ini</p>
+                    </div>
+                    <button onclick="closeGlobalBestModal()" class="text-slate-400 hover:text-red-500 font-black text-3xl leading-none">&times;</button>
+                </div>
+                <div class="p-6 overflow-y-auto" id="globalBestContent">
+                    <!-- Konten Rekap Diisi via JS -->
                 </div>
             </div>
         </div>
@@ -831,7 +850,9 @@
         // FITUR AI ANALISIS KARYAWAN TERBAIK MASING-MASING BAGIAN
         // ==========================================
         function calculateBestEmployeeAI(dep, filteredUsers) {
-            if (!filteredUsers || filteredUsers.length === 0) return null;
+            // Filter exclude user ASTBARMA0113 dari nominasi
+            let eligibleUsers = filteredUsers.filter(u => u.nama !== "ASTBARMA0113");
+            if (!eligibleUsers || eligibleUsers.length === 0) return null;
 
             // Hitung jumlah hari aktif unik per user dari excelData berdasarkan rentang tanggal
             const sDate = document.getElementById('startDate').value;
@@ -854,14 +875,13 @@
                 }
             });
 
-            let scoredUsers = filteredUsers.map(user => {
+            let scoredUsers = eligibleUsers.map(user => {
                 let daysCount = userActiveDays[user.nama] ? userActiveDays[user.nama].size : 1;
                 if (daysCount === 0) daysCount = 1;
                 
                 let mainQty = user.divQty[dep] || 0;
                 let avgPerDay = mainQty / daysCount;
 
-                // Hitung poin keterlibatan membantu bagian lain (misalnya picker bantu packer/receiver atau sebaliknya)
                 let otherPartsQty = 0;
                 ['PICKER', 'PACKER', 'RECEIVER'].forEach(otherDep => {
                     if (otherDep !== dep) {
@@ -869,7 +889,6 @@
                     }
                 });
 
-                // Bobot penilaian AI: Rata-rata item utama harian (70%) + Skor Keterlibatan Membantu Bagian Lain (30%)
                 let supportScoreBonus = otherPartsQty * 0.5; 
                 let finalScore = avgPerDay + supportScoreBonus;
 
@@ -882,9 +901,8 @@
                 };
             });
 
-            // Urutkan berdasarkan skor tertinggi
             scoredUsers.sort((a, b) => b.finalScore - a.finalScore);
-            return scoredUsers[0]; // Karyawan terbaik
+            return scoredUsers[0]; 
         }
 
         function showDetail(dep) {
@@ -908,7 +926,6 @@
             let gacorCount = 0;
             let needGaspolCount = 0;
 
-            // Jalankan AI Analisis Karyawan Terbaik
             let bestEmployee = calculateBestEmployeeAI(dep, filteredUsers);
 
             let html = '';
@@ -973,12 +990,11 @@
                 </tr>`;
             });
 
-            // Kotak Rekomendasi AI Analisis Karyawan Terbaik
             let aiAnalysisHTML = '';
             if (bestEmployee) {
                 let bestNamaLengkap = USER_NAME_MAP[bestEmployee.nama] || bestEmployee.nama;
                 aiAnalysisHTML = `
-                    <div class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-5 rounded-2xl shadow-md border border-blue-700 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div id="aiBannerContainer" class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-5 rounded-2xl shadow-md border border-blue-700 flex flex-col md:flex-row items-center justify-between gap-4">
                         <div class="flex items-center gap-4">
                             <div class="text-4xl bg-blue-800 p-3 rounded-xl border border-blue-600">🤖⭐</div>
                             <div>
@@ -1017,12 +1033,56 @@
             document.getElementById('detailModal').classList.remove('hidden');
         }
 
+        // ==========================================
+        // MENU GLOBAL CEK KARYAWAN TERBAIK
+        // ==========================================
+        function openGlobalBestEmployeeModal() {
+            const sDate = document.getElementById('startDate').value;
+            const eDate = document.getElementById('endDate').value;
+            if (!sDate && !eDate) { alert("⚠️ Harap tentukan Periode Tanggal (Mulai & Akhir) terlebih dahulu!"); return; }
+
+            let contentHTML = `<div class="space-y-4">`;
+            ['PICKER', 'PACKER', 'RECEIVER'].forEach(dep => {
+                let filteredUsers = currentFilteredData.filter(i => i.bagian === dep);
+                let best = calculateBestEmployeeAI(dep, filteredUsers);
+                if (best) {
+                    let fullName = USER_NAME_MAP[best.nama] || best.nama;
+                    contentHTML += `
+                        <div class="bg-amber-50/70 border border-amber-200 p-4 rounded-xl flex items-center justify-between">
+                            <div>
+                                <span class="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Divisi ${dep}</span>
+                                <h4 class="text-lg font-black text-slate-800 mt-1">${best.nama} (${fullName})</h4>
+                                <p class="text-xs text-slate-600 mt-0.5">Rata-rata: <b>${best.avgPerDay.toFixed(1)} item/hari</b> | Skor AI: <b>${best.finalScore.toFixed(0)} pts</b></p>
+                            </div>
+                            <div class="text-3xl">⭐</div>
+                        </div>
+                    `;
+                } else {
+                    contentHTML += `
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                            <span class="text-xs font-bold text-slate-400 uppercase">Divisi ${dep}</span>
+                            <p class="text-sm text-slate-500 mt-1">Tidak ada data karyawan pada periode ini.</p>
+                        </div>
+                    `;
+                }
+            });
+            contentHTML += `</div>`;
+            document.getElementById('globalBestContent').innerHTML = contentHTML;
+            document.getElementById('globalBestModal').classList.remove('hidden');
+        }
+
+        function closeGlobalBestModal() {
+            document.getElementById('globalBestModal').classList.add('hidden');
+        }
+
         function closeModal() { document.getElementById('detailModal').classList.add('hidden'); }
         
         function downloadModalImage() {
             const card = document.getElementById('modalCard');
             const scrollArea = document.getElementById('modalScrollArea');
             const downloadBtn = document.getElementById('modalDownloadBtn');
+            const aiBanner = document.getElementById('aiBannerContainer'); // Ambil elemen banner karyawan terbaik
+
             const origCardMaxH = card.style.maxHeight;
             const origCardOverflow = card.style.overflow;
             const origScrollMaxH = scrollArea.style.maxHeight;
@@ -1031,6 +1091,9 @@
             card.style.maxHeight = 'none'; card.style.overflow = 'visible';
             scrollArea.style.maxHeight = 'none'; scrollArea.style.overflow = 'visible';
             downloadBtn.style.display = 'none';
+            
+            // Sembunyikan banner karyawan terbaik saat di-download
+            if (aiBanner) aiBanner.style.display = 'none';
 
             setTimeout(() => {
                 html2canvas(card, { scale: 2, useCORS: true, windowWidth: card.scrollWidth, windowHeight: card.scrollHeight }).then(c => {
@@ -1040,9 +1103,13 @@
                     const dateStr = (sDate || eDate) ? `${sDate}_SD_${eDate}` : 'Semua_Waktu';
                     a.download = `Evaluasi_Detail_${currentDetailDep}_${dateStr}.png`; 
                     a.href = c.toDataURL(); a.click();
+                    
                     card.style.maxHeight = origCardMaxH; card.style.overflow = origCardOverflow;
                     scrollArea.style.maxHeight = origScrollMaxH; scrollArea.style.overflow = origScrollOverflow;
                     downloadBtn.style.display = 'flex';
+                    
+                    // Tampilkan kembali banner karyawan terbaik setelah selesai download
+                    if (aiBanner) aiBanner.style.display = 'flex';
                 });
             }, 150);
         }
